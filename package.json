@@ -1,0 +1,46 @@
+{
+	"name": "@rassweiler/kawasaki-as-parser",
+	"version": "0.0.1",
+	"description": "Kawasaki backup parser",
+	"main": "index.js",
+	"scripts": {
+		"start": "npm run --exec @babel/node",
+		"test": "./node_modules/.bin/mocha --require @babel/register",
+		"build": "babel src --out-dir lib"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/rassweiler/kawasaki-as-parser.git"
+	},
+	"keywords": [
+		"Kawasaki",
+		"robot",
+		"parser",
+		"backup"
+	],
+	"author": "Kyle Rassweiler",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/rassweiler/kawasaki-as-parser/issues"
+	},
+	"homepage": "https://github.com/rassweiler/kawasaki-as-parser#readme",
+	"files": [
+		"LICENSE",
+		"README.md",
+		"index.js",
+		"lib/"
+	],
+	"devDependencies": {
+		"@babel/cli": "^7.6.0",
+		"@babel/core": "^7.5.5",
+		"@babel/node": "^7.5.5",
+		"@babel/plugin-proposal-class-properties": "^7.5.5",
+		"@babel/plugin-transform-runtime": "^7.6.0",
+		"@babel/preset-env": "^7.5.5",
+		"@babel/register": "^7.5.5",
+		"@babel/runtime": "^7.6.0",
+		"chai": "*",
+		"mocha": "*",
+		"nodemon": "^1.19.2"
+	}
+}
