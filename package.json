@@ -4,8 +4,7 @@
 	"description": "Kawasaki backup parser",
 	"main": "index.js",
 	"scripts": {
-		"start": "npm run --exec @babel/node",
-		"test": "./node_modules/.bin/mocha --require @babel/register",
+		"test": "babel src --out-dir lib && mocha --require @babel/register",
 		"build": "babel src --out-dir lib"
 	},
 	"repository": {
