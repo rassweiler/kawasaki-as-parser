@@ -1,5 +1,7 @@
 # kawasaki-as-parser
 
+[![Build Status](https://travis-ci.org/rassweiler/kawasaki-as-parser.svg?branch=master)](https://travis-ci.org/rassweiler/kawasaki-as-parser)
+
 Node module for parsing kawasaki as backup files.
 
 ## Install
