@@ -1,4 +1,4 @@
-var data = [
+export const data = [
 	";generic",
 	".ROBOTDATA1",
 	"ZROBOT.TYPE    34  97  11 6831     -104596   BX200L-C011 ( 2017-03-21 09:06 )",
@@ -689,5 +689,3 @@ var data = [
 	".PROGRAM r1_pg0(); Program Zero",
 	".END"
 ];
-
-exports.data = data;
