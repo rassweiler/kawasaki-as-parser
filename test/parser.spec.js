@@ -1,4 +1,3 @@
-import { expect, assert } from "Chai";
 import KawasakiParser from "../index.js";
 import { describe } from "mocha";
 import { data } from "./samples/data.js";

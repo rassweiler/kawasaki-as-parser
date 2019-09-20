@@ -4,8 +4,9 @@
 	"description": "Kawasaki backup parser",
 	"main": "index.js",
 	"scripts": {
-		"test": "babel src --out-dir lib && mocha --require @babel/register",
-		"build": "babel src --out-dir lib"
+		"mocha": "mocha --require @babel/register",
+		"build": "babel src --out-dir lib",
+		"test": "npm run build && npm run mocha"
 	},
 	"repository": {
 		"type": "git",
@@ -39,7 +40,6 @@
 		"@babel/register": "^7.5.5",
 		"@babel/runtime": "^7.6.0",
 		"chai": "*",
-		"mocha": "*",
-		"nodemon": "^1.19.2"
+		"mocha": "*"
 	}
 }
