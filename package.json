@@ -1,6 +1,6 @@
 {
 	"name": "@rassweiler/kawasaki-as-parser",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "Kawasaki backup parser",
 	"main": "index.js",
 	"scripts": {
