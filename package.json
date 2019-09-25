@@ -6,7 +6,10 @@
 	"scripts": {
 		"mocha": "mocha --require @babel/register",
 		"build": "babel src --out-dir lib",
-		"test": "npm run build && npm run mocha"
+		"test": "npm run build && npm run mocha",
+		"preversion": "npm test",
+		"version": "git add -A",
+		"postversion": "git push && git push --tags"
 	},
 	"repository": {
 		"type": "git",
