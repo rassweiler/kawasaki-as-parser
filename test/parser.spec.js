@@ -170,7 +170,6 @@ describe("Kawasaki Parser", () => {
 				.readFile("./test/Samples/generic.as", "utf8")
 				.then(rawData => {
 					return KawasakiParser.getControllerObject(rawData).then(result => {
-						console.log("Result:", result);
 						if (result === null) {
 							throw new Error(`result is null: ${result}`);
 						}

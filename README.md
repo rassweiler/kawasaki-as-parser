@@ -1,6 +1,6 @@
 # kawasaki-as-parser
 
-[![Build Status](https://travis-ci.org/rassweiler/kawasaki-as-parser.svg?branch=Dev)](https://travis-ci.org/rassweiler/kawasaki-as-parser)
+[![Build Status](https://travis-ci.org/rassweiler/kawasaki-as-parser.svg?branch=master)](https://travis-ci.org/rassweiler/kawasaki-as-parser)
 
 Node module for parsing kawasaki as backup files.
 
@@ -32,7 +32,7 @@ let info = await KawasakiParser.getRobotInformationObject(
 Or the `getControllerObject()` function can be called and will return an object containing all of the robot information:
 
 ```javascript
-let controller = await KawasakiParser.getControllerObject(utf8StringArray);
+let controller = await KawasakiParser.getControllerObject(utf8StringFromAsFile);
 ```
 
 ## Milestones
