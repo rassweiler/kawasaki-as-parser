@@ -16,22 +16,34 @@ Yarn
 
 ### Usage
 
+```javascript
+import KawasakiParser from "@rassweiler/kawasaki-as-parser";
+```
+
 The module's functions can be called independently:
 
 ```javascript
-import KawasakiParser as kp from '@rassweiler/kawasaki-as-parser'
-
-kp.parseRobotType(arrayOfStrings,robotNumber).then(result =>{},error =>{});
+let info = await KawasakiParser.getRobotInformationObject(
+	utf8StringArray,
+	robotNumber
+);
 ```
 
-Or the init function can be called and will return an object containing all of the robot information:
+Or the `getControllerObject()` function can be called and will return an object containing all of the robot information:
 
 ```javascript
-import KawasakiParser as kp from '@rassweiler/kawasaki-as-parser'
-
-kp.init(rawStringData).then(result =>{},error =>{});
+let controller = await KawasakiParser.getControllerObject(utf8StringArray);
 ```
 
-### Deprecaded
+## Milestones
 
-The parser originally used fs to get the raw data from files, however it was decided that the parser should not rely on node's fs. The `readFile(filePath)` function will be removed in the next major update. Instead the parser expects raw utf8 string data to be supplied.
+- [x] Parse comments
+- [ ] Parse Robot Block Programs
+- [ ] Parse Robot AS Programs
+- [ ] Parse AS reals
+- [ ] Parse AS trans
+- [ ] Parse AS joints
+- [ ] Parse AS trans
+- [ ] Parse AS strings
+- [ ] Parse Spot Weld Info
+- [ ] Parse MIG Weld Info

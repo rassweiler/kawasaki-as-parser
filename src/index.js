@@ -3,7 +3,7 @@ import fs from "fs";
 export const RobotTypes = {
 	SPOT: "Spot",
 	MH: "MH",
-	NCMH: "NC-MH",
+	NCMH: 8,
 	SPOTMH: "Spot-MH",
 	VISION: "Vision-MH",
 	MIG: "Mig",
@@ -11,21 +11,57 @@ export const RobotTypes = {
 };
 
 class KawasakiParser {
-	constructor() {
-		this.parsedControllerData;
-		this.controllerObject;
-	}
+	constructor() {}
 
-	init = async rawStringData => {
-		this.data = await this.parseRawData(rawStringData);
+	static getControllerObject = async rawStringData => {
+		try {
+			let parsedControllerData = await this.getRobotDataStringArray(
+				rawStringData
+			);
+			let numberOfRobots = await this.getNumberOfRobotsInController(
+				parsedControllerData
+			);
+			let controllerObject = { robots: [] };
+			for (let index = 1; index <= numberOfRobots; ++index) {
+				let results = await Promise.all([
+					this.getRobotInformationObject(parsedControllerData, index),
+					this.getRobotTCPCOGArray(parsedControllerData, index),
+					this.getRobotInstallPositionObject(parsedControllerData, index),
+					this.getRobotJointLimitArray(parsedControllerData, index),
+					this.getRobotVSFLinkArray(parsedControllerData, index),
+					this.getRobotVSFAreaObject(parsedControllerData, index),
+					this.getRobotVSFToolSphereArray(parsedControllerData, index),
+					this.getRobotVSFToolBoxArray(parsedControllerData, index)
+				]);
+				let robot = {
+					...results[0],
+					tools: results[1],
+					installPosition: results[2],
+					softLimits: results[3],
+					vsf: {
+						...results[5],
+						linkData: results[4],
+						toolSpheres: results[6],
+						toolBoxes: results[7]
+					}
+				};
+				controllerObject.robots = [...controllerObject.robots, robot];
+			}
+			if (controllerObject.robots[0].robotType === RobotTypes.NCMH) {
+				controllerObject.ncTable = await this.getNCTableArray(
+					parsedControllerData
+				);
+			}
+			let comments = await this.getRobotIOCommentsObject(parsedControllerData);
+			controllerObject = { ...controllerObject, ...comments };
+
+			return controllerObject;
+		} catch (error) {
+			throw error;
+		}
 	};
 
-	/** This is deprecated, this module should not take care of file IO. */
-	readFile = async asFilePath => {
-		return fs.promises.readFile(asFilePath, "utf8");
-	};
-
-	parseRawData = async rawControllerString => {
+	static getRobotDataStringArray = async rawControllerString => {
 		this.parsedControllerData = rawControllerString.split("\n");
 
 		//AS files often have extra characters, must trim all lines.
@@ -35,7 +71,10 @@ class KawasakiParser {
 		return this.parsedControllerData;
 	};
 
-	parseRobotType = async (parsedControllerData, robotNumber) => {
+	static getRobotInformationObject = async (
+		parsedControllerData,
+		robotNumber
+	) => {
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === `.ROBOTDATA${robotNumber}`) {
 				while (parsedControllerData[i] != ".END") {
@@ -52,17 +91,17 @@ class KawasakiParser {
 		}
 	};
 
-	parseRobotNumber = async parsedControllerData => {
+	static getNumberOfRobotsInController = async parsedControllerData => {
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith("ZSYSTEM")) {
 				let line = parsedControllerData[i].split(" ").filter(Boolean);
 				return parseInt(line[1]);
 			}
 		}
-		throw new Error("Unable to locate robot numbers");
+		throw new Error("Unable to locate number of robots");
 	};
 
-	parseRobotComments = async parsedControllerData => {
+	static getRobotIOCommentsObject = async parsedControllerData => {
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === ".SIG_NAME_LANG2") {
 				++i;
@@ -100,7 +139,7 @@ class KawasakiParser {
 		throw new Error("Unable to locate robot numbers");
 	};
 
-	parseNCTable = async parsedControllerData => {
+	static getNCTableArray = async parsedControllerData => {
 		let ncs = 64;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith("MAT_TBL[1]")) {
@@ -130,7 +169,7 @@ class KawasakiParser {
 		throw new Error("Unable to locate robot numbers");
 	};
 
-	parseRobotTCPCOG = async (parsedControllerData, robotNumber) => {
+	static getRobotTCPCOGArray = async (parsedControllerData, robotNumber) => {
 		let target = `.AUXDATA${robotNumber > 1 ? robotNumber : ""}`;
 		let maxTools = 9;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
@@ -172,9 +211,11 @@ class KawasakiParser {
 		throw new Error(`Unable to locate robot tool information in ${target}`);
 	};
 
-	parseRobotInstallPosition = async (parsedControllerData, robot) => {
+	static getRobotInstallPositionObject = async (
+		parsedControllerData,
+		robot
+	) => {
 		let target = `.VSFDATA${robot}`;
-		let maxTools = 9;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === target) {
 				while (parsedControllerData[i] != ".END") {
@@ -199,7 +240,10 @@ class KawasakiParser {
 		throw new Error(`Unable to locate robot install information in ${target}`);
 	};
 
-	parseRobotJointLimits = async (parsedControllerData, robotNumber) => {
+	static getRobotJointLimitArray = async (
+		parsedControllerData,
+		robotNumber
+	) => {
 		const target1 = `.AUXDATA${robotNumber > 1 ? robotNumber : ""}`;
 		const target2 = `.ROBOTDATA${robotNumber}`;
 		let limits = [];
@@ -245,7 +289,7 @@ class KawasakiParser {
 		);
 	};
 
-	parseRobotVSFLink = async (parsedControllerData, robotNumber) => {
+	static getRobotVSFLinkArray = async (parsedControllerData, robotNumber) => {
 		const target = `.VSFDATA${robotNumber}`;
 		const params = 8;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
@@ -277,7 +321,7 @@ class KawasakiParser {
 		throw new Error(`Unable to locate robot link information in ${target}`);
 	};
 
-	parseRobotVSFArea = async (parsedControllerData, robotNumber) => {
+	static getRobotVSFAreaObject = async (parsedControllerData, robotNumber) => {
 		const target = `.VSFDATA${robotNumber}`;
 		const areas = 9;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
@@ -329,7 +373,10 @@ class KawasakiParser {
 		throw new Error(`Unable to locate vsf area information in ${target}`);
 	};
 
-	parseRobotVSFToolSpheres = async (parsedControllerData, robotNumber) => {
+	static getRobotVSFToolSphereArray = async (
+		parsedControllerData,
+		robotNumber
+	) => {
 		const target = `.VSFDATA${robotNumber}`;
 		const toolnum = 9;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
@@ -375,7 +422,10 @@ class KawasakiParser {
 		);
 	};
 
-	parseRobotVSFToolBoxes = async (parsedControllerData, robotNumber) => {
+	static getRobotVSFToolBoxArray = async (
+		parsedControllerData,
+		robotNumber
+	) => {
 		const target = `.VSFDATA${robotNumber}`;
 		const toolnum = 9;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
