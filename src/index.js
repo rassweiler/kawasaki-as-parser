@@ -1,13 +1,13 @@
 import fs from "fs";
 
 export const RobotTypes = {
-	SPOT: "Spot",
-	MH: "MH",
-	NCMH: 8,
-	SPOTMH: "Spot-MH",
-	VISION: "Vision-MH",
-	MIG: "Mig",
-	NC: "NC Locator"
+	8: "Spot",
+	7: "MH",
+	11: "NC MH",
+	96: "Spot-MH",
+	99: "Vision-MH",
+	98: "Mig",
+	97: "NC Locator"
 };
 
 class KawasakiParser {
