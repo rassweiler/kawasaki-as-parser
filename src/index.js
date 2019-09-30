@@ -14,51 +14,59 @@ class KawasakiParser {
 	constructor() {}
 
 	static getControllerObject = async rawStringData => {
+		let parsedControllerData, numberOfRobots;
 		try {
-			let parsedControllerData = await this.getRobotDataStringArray(
-				rawStringData
-			);
-			let numberOfRobots = await this.getNumberOfRobotsInController(
+			parsedControllerData = await this.getRobotDataStringArray(rawStringData);
+			numberOfRobots = await this.getNumberOfRobotsInController(
 				parsedControllerData
 			);
-			let controllerObject = { robots: [] };
-			for (let index = 1; index <= numberOfRobots; ++index) {
-				let results = await Promise.all([
-					this.getRobotInformationObject(parsedControllerData, index),
-					this.getRobotTCPCOGArray(parsedControllerData, index),
-					this.getRobotInstallPositionObject(parsedControllerData, index),
-					this.getRobotJointLimitArray(parsedControllerData, index),
-					this.getRobotVSFLinkArray(parsedControllerData, index),
-					this.getRobotVSFAreaObject(parsedControllerData, index),
-					this.getRobotVSFToolSphereArray(parsedControllerData, index),
-					this.getRobotVSFToolBoxArray(parsedControllerData, index)
-				]);
-				let robot = {
-					...results[0],
-					tools: results[1],
-					installPosition: results[2],
-					softLimits: results[3],
-					vsf: {
-						...results[5],
-						linkData: results[4],
-						toolSpheres: results[6],
-						toolBoxes: results[7]
-					}
-				};
-				controllerObject.robots = [...controllerObject.robots, robot];
-			}
-			if (controllerObject.robots[0].robotType === RobotTypes.NCMH) {
-				controllerObject.ncTable = await this.getNCTableArray(
-					parsedControllerData
-				);
-			}
-			let comments = await this.getRobotIOCommentsObject(parsedControllerData);
-			controllerObject = { ...controllerObject, ...comments };
-
-			return controllerObject;
 		} catch (error) {
 			throw error;
 		}
+		let controllerObject = { robots: [] };
+		for (let index = 1; index <= numberOfRobots; ++index) {
+			let results = await Promise.all([
+				this.getRobotInformationObject(parsedControllerData, index),
+				this.getRobotTCPCOGArray(parsedControllerData, index),
+				this.getRobotInstallPositionObject(parsedControllerData, index),
+				this.getRobotJointLimitArray(parsedControllerData, index),
+				this.getRobotVSFLinkArray(parsedControllerData, index),
+				this.getRobotVSFAreaObject(parsedControllerData, index),
+				this.getRobotVSFToolSphereArray(parsedControllerData, index),
+				this.getRobotVSFToolBoxArray(parsedControllerData, index)
+			]);
+			let robot = {
+				...results[0],
+				tools: results[1],
+				installPosition: results[2],
+				softLimits: results[3],
+				vsf: {
+					...results[5],
+					linkData: results[4],
+					toolSpheres: results[6],
+					toolBoxes: results[7]
+				}
+			};
+			controllerObject.robots = [...controllerObject.robots, robot];
+		}
+		if (controllerObject.robots[0].robotType === RobotTypes.NCMH) {
+			try {
+				controllerObject.ncTable = await this.getNCTableArray(
+					parsedControllerData
+				);
+			} catch (error) {
+				controllerObject.ncTable = [];
+				console.log("KAP NC Table Error:", error);
+			}
+		}
+		try {
+			let comments = await this.getRobotIOCommentsObject(parsedControllerData);
+			controllerObject = { ...controllerObject, ...comments };
+		} catch (error) {
+			console.log("KAP Comment Error:", error);
+		}
+
+		return controllerObject;
 	};
 
 	static getRobotDataStringArray = async rawControllerString => {
@@ -322,6 +330,9 @@ class KawasakiParser {
 	};
 
 	static getRobotVSFAreaObject = async (parsedControllerData, robotNumber) => {
+		if (robotNumber > 1) {
+			return {};
+		}
 		const target = `.VSFDATA${robotNumber}`;
 		const areas = 9;
 		for (var i = 0; i < parsedControllerData.length; ++i) {
