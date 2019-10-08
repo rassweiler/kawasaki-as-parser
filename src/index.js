@@ -16,7 +16,9 @@ class KawasakiParser {
 	static getControllerObject = async rawStringData => {
 		let parsedControllerData, numberOfRobots;
 		try {
-			parsedControllerData = await this.getRobotDataStringArray(rawStringData);
+			parsedControllerData = await this.getRobotDataStringArray(
+				rawStringData
+			);
 			numberOfRobots = await this.getNumberOfRobotsInController(
 				parsedControllerData
 			);
@@ -60,7 +62,9 @@ class KawasakiParser {
 			}
 		}
 		try {
-			let comments = await this.getRobotIOCommentsObject(parsedControllerData);
+			let comments = await this.getRobotIOCommentsObject(
+				parsedControllerData
+			);
 			controllerObject = { ...controllerObject, ...comments };
 		} catch (error) {
 			console.log("KAP Comment Error:", error);
@@ -189,7 +193,9 @@ class KawasakiParser {
 						let tools = [];
 						for (let t = start; t < end; ++t) {
 							let tool = { tcp: {}, cog: {} };
-							let line = parsedControllerData[t].split(" ").filter(Boolean);
+							let line = parsedControllerData[t]
+								.split(" ")
+								.filter(Boolean);
 							line.shift();
 							tool.tcp.x = parseFloat(line[0]);
 							tool.tcp.y = parseFloat(line[1]);
@@ -228,7 +234,9 @@ class KawasakiParser {
 			if (parsedControllerData[i] === target) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("SYS_BASE")) {
-						const line = parsedControllerData[i].split(" ").filter(Boolean);
+						const line = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
 						if (line.length < 7) {
 							throw new Error("Data retrieved is missing values");
 						}
@@ -245,7 +253,9 @@ class KawasakiParser {
 				}
 			}
 		}
-		throw new Error(`Unable to locate robot install information in ${target}`);
+		throw new Error(
+			`Unable to locate robot install information in ${target}`
+		);
 	};
 
 	static getRobotJointLimitArray = async (
@@ -262,7 +272,9 @@ class KawasakiParser {
 						let max = parsedControllerData[i].split(" ").filter(Boolean);
 						max.shift();
 						max.pop();
-						let min = parsedControllerData[i + 1].split(" ").filter(Boolean);
+						let min = parsedControllerData[i + 1]
+							.split(" ")
+							.filter(Boolean);
 						min.shift();
 						min.pop();
 						for (let index = 0; index < max.length; ++index) {
@@ -278,9 +290,13 @@ class KawasakiParser {
 			if (parsedControllerData[i].startsWith(target1)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("UP-LIM")) {
-						let upper = parsedControllerData[i].split(" ").filter(Boolean);
+						let upper = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
 						upper.shift();
-						let lower = parsedControllerData[i + 1].split(" ").filter(Boolean);
+						let lower = parsedControllerData[i + 1]
+							.split(" ")
+							.filter(Boolean);
 						lower.shift();
 						for (let index = 0; index < upper.length; ++index) {
 							limits[index].upper = parseFloat(upper[index]);
@@ -485,6 +501,26 @@ class KawasakiParser {
 		}
 		throw new Error(
 			`Unable to locate vsf tool sphere information in ${target}`
+		);
+	};
+
+	static getRobotProgramArray = async (parsedControllerData, robotNumber) => {
+		const target = `.PROGRAM r${robotNumber}`;
+		const programs = [];
+		for (var i = 0; i < parsedControllerData.length; ++i) {
+			if (parsedControllerData[i].startsWith(target)) {
+				let program = { name: "", arguments: [], lines: [] };
+
+				while (parsedControllerData[i] != ".END") {
+					let parsed = parsedControllerData[i];
+
+					++i;
+				}
+				programs = [...programs, program];
+			}
+		}
+		throw new Error(
+			`Unable to locate program information information in ${target}`
 		);
 	};
 }

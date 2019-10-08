@@ -37,13 +37,14 @@ let controller = await KawasakiParser.getControllerObject(utf8StringFromAsFile);
 
 ## Milestones
 
-- [x] Parse comments
-- [ ] Parse Robot Block Programs
-- [ ] Parse Robot AS Programs
-- [ ] Parse AS reals
-- [ ] Parse AS trans
-- [ ] Parse AS joints
-- [ ] Parse AS trans
-- [ ] Parse AS strings
-- [ ] Parse Spot Weld Info
-- [ ] Parse MIG Weld Info
+-  [x] Parse comments
+-  [ ] Parse Robot Block Programs
+-  [ ] Parse Robot AS Programs
+-  [ ] Parse Robot BCD Info
+-  [ ] Parse AS reals
+-  [ ] Parse AS trans
+-  [ ] Parse AS joints
+-  [ ] Parse AS trans
+-  [ ] Parse AS strings
+-  [ ] Parse Spot Weld Info
+-  [ ] Parse MIG Weld Info
