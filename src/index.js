@@ -1,5 +1,3 @@
-import fs from "fs";
-
 export const RobotTypes = {
 	8: "Spot",
 	7: "MH",
@@ -504,13 +502,20 @@ class KawasakiParser {
 		);
 	};
 
-	static getRobotProgramArray = async (parsedControllerData, robotNumber) => {
+	static getRobotProgramsArray = async (parsedControllerData, robotNumber) => {
 		const target = `.PROGRAM r${robotNumber}`;
 		const programs = [];
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
-				let program = { name: "", arguments: [], lines: [] };
-
+				let program = { name: "", arguments: [], lines: [], comment: "" };
+				program.comment = parsedControllerData[i].split(";")[1];
+				let argument = parsedControllerData[i].match(/\((.*?)\)/);
+				console.log("Line:", parsedControllerData[i]);
+				console.log("Argument:", argument);
+				if (argument) {
+					program.arguments = argument[1].split(",");
+				}
+				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
 				while (parsedControllerData[i] != ".END") {
 					let parsed = parsedControllerData[i];
 
@@ -518,6 +523,51 @@ class KawasakiParser {
 				}
 				programs = [...programs, program];
 			}
+		}
+		throw new Error(
+			`Unable to locate program information information in ${target}`
+		);
+	};
+
+	static getControllerProgramsArray = async parsedControllerData => {
+		const target = `.PROGRAM`;
+		const programs = [];
+		for (var i = 0; i < parsedControllerData.length; ++i) {
+			if (
+				parsedControllerData[i].startsWith(target) &&
+				!parsedControllerData[i].includes("_pg")
+			) {
+				let program = { name: "", arguments: [], lines: [], comment: "" };
+				program.comment = parsedControllerData[i].split(";")[1];
+				let argument = parsedControllerData[i].match(/\((.*?)\)/);
+				console.log("Line:", parsedControllerData[i]);
+				console.log("Argument:", argument);
+				program.arguments = argument[1].split(",");
+				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
+				++i;
+				while (parsedControllerData[i] != ".END") {
+					let parsed = parsedControllerData[i];
+					let line = { type: "", comment: "" };
+					if (parsed.startsWith(";")) {
+						line.type = "comment";
+						line.comment = parsed.substr(1);
+					} else if (parsed.includes(";")) {
+						line.type = "as";
+						let l = parsed.split(";");
+						line.comment = l[1];
+						line.command = l[0];
+					} else {
+						line.type = "as";
+						line.command = parsed;
+					}
+					program.lines = [...program.lines, line];
+					++i;
+				}
+				programs = [...programs, program];
+			}
+		}
+		if (programs.length > 0) {
+			return programs;
 		}
 		throw new Error(
 			`Unable to locate program information information in ${target}`

@@ -6,27 +6,35 @@ import { data } from "./Samples/data.js";
 describe("Kawasaki Parser", () => {
 	describe("General Robot", () => {
 		it("Returns robot 1 model", () => {
-			return KawasakiParser.getRobotInformationObject(data, 1).then(result => {
-				if (result.robotModel != "BX200L") {
-					throw new Error(
-						`Robot model doesn't equal BX200L: ${result.robotModel}`
-					);
+			return KawasakiParser.getRobotInformationObject(data, 1).then(
+				result => {
+					if (result.robotModel != "BX200L") {
+						throw new Error(
+							`Robot model doesn't equal BX200L: ${result.robotModel}`
+						);
+					}
 				}
-			});
+			);
 		});
 		it("Returns robot 1 type", () => {
-			return KawasakiParser.getRobotInformationObject(data, 1).then(result => {
-				if (result.robotType != 11) {
-					throw new Error(`Robot type doesn't equal 11: ${result.robotType}`);
+			return KawasakiParser.getRobotInformationObject(data, 1).then(
+				result => {
+					if (result.robotType != 11) {
+						throw new Error(
+							`Robot type doesn't equal 11: ${result.robotType}`
+						);
+					}
 				}
-			});
+			);
 		});
 		it("Returns number of robots in controller", () => {
-			return KawasakiParser.getNumberOfRobotsInController(data).then(result => {
-				if (result != 6) {
-					throw new Error(`Robot number doesn't equal 6: ${result}`);
+			return KawasakiParser.getNumberOfRobotsInController(data).then(
+				result => {
+					if (result != 6) {
+						throw new Error(`Robot number doesn't equal 6: ${result}`);
+					}
 				}
-			});
+			);
 		});
 		it("Returns TCP information for robot 1", () => {
 			return KawasakiParser.getRobotTCPCOGArray(data, 1).then(result => {
@@ -34,7 +42,9 @@ describe("Kawasaki Parser", () => {
 					throw new Error(`Result is not an array: ${result}`);
 				}
 				if (result[0].tcp.x != -389.3) {
-					throw new Error(`Robot 1 tool 1 tcp x value mismatch: ${result}`);
+					throw new Error(
+						`Robot 1 tool 1 tcp x value mismatch: ${result}`
+					);
 				}
 			});
 		});
@@ -44,14 +54,18 @@ describe("Kawasaki Parser", () => {
 					throw new Error(`Result is not an array: ${result}`);
 				}
 				if (result[0].cog.weight != 91) {
-					throw new Error(`Robot 1 tool 1 tcp x value mismatch: ${result}`);
+					throw new Error(
+						`Robot 1 tool 1 tcp x value mismatch: ${result}`
+					);
 				}
 			});
 		});
 		it("Returns Input Comments For Robots", () => {
 			return KawasakiParser.getRobotIOCommentsObject(data).then(result => {
 				if (!Array.isArray(result.inputs)) {
-					throw new Error(`Result.inputs is not an array: ${result.inputs}`);
+					throw new Error(
+						`Result.inputs is not an array: ${result.inputs}`
+					);
 				}
 				if (result.inputs[0].comment != "Test Input") {
 					throw new Error(
@@ -63,7 +77,9 @@ describe("Kawasaki Parser", () => {
 		it("Returns Ouput Comments For Robots", () => {
 			return KawasakiParser.getRobotIOCommentsObject(data).then(result => {
 				if (!Array.isArray(result.outputs)) {
-					throw new Error(`Result.inputs is not an array: ${result.outputs}`);
+					throw new Error(
+						`Result.inputs is not an array: ${result.outputs}`
+					);
 				}
 				if (result.outputs[0].comment != "Test Output") {
 					throw new Error(
@@ -110,9 +126,7 @@ describe("Kawasaki Parser", () => {
 			return KawasakiParser.getRobotVSFAreaObject(data, 1).then(result => {
 				if (result.area.lines.length != 8) {
 					throw new Error(
-						`result.area.lines.length value mismatch: ${
-							result.area.lines.length
-						}`
+						`result.area.lines.length value mismatch: ${result.area.lines.length}`
 					);
 				}
 				if (result.area.lines[0].x1 != -1150) {
@@ -127,40 +141,40 @@ describe("Kawasaki Parser", () => {
 				}
 				if (result.parts[0].lines[0].x1 != 200) {
 					throw new Error(
-						`result.parts[0].lines[0].x1 value mismatch: ${
-							result.parts[0].lines[0].x1
-						}`
+						`result.parts[0].lines[0].x1 value mismatch: ${result.parts[0].lines[0].x1}`
 					);
 				}
 			});
 		});
 		it("Returns VSF Tool Sphere Data For Robot 1", () => {
-			return KawasakiParser.getRobotVSFToolSphereArray(data, 1).then(result => {
-				if (result.length != 9) {
-					throw new Error(`result.length value mismatch: ${result.length}`);
+			return KawasakiParser.getRobotVSFToolSphereArray(data, 1).then(
+				result => {
+					if (result.length != 9) {
+						throw new Error(
+							`result.length value mismatch: ${result.length}`
+						);
+					}
+					if (result[0].spheres[0].radius != 210) {
+						throw new Error(
+							`result[0].spheres[0].radius value mismatch: ${result[0].spheres[0].radius}`
+						);
+					}
 				}
-				if (result[0].spheres[0].radius != 210) {
-					throw new Error(
-						`result[0].spheres[0].radius value mismatch: ${
-							result[0].spheres[0].radius
-						}`
-					);
-				}
-			});
+			);
 		});
 		it("Returns VSF Tool Box Data For Robot 1", () => {
 			return KawasakiParser.getRobotVSFToolBoxArray(data, 1).then(result => {
 				if (result.length != 9) {
-					throw new Error(`result.length value mismatch: ${result.length}`);
+					throw new Error(
+						`result.length value mismatch: ${result.length}`
+					);
 				}
 				if (result[0].x != 20) {
 					throw new Error(`result[0].x value mismatch: ${result[0].x}`);
 				}
 				if (result[0].spheres.length != 2) {
 					throw new Error(
-						`result[0].spheres.length value mismatch: ${
-							result[0].spheres.length
-						}`
+						`result[0].spheres.length value mismatch: ${result[0].spheres.length}`
 					);
 				}
 			});
@@ -169,18 +183,39 @@ describe("Kawasaki Parser", () => {
 			return fs.promises
 				.readFile("./test/Samples/generic.as", "utf8")
 				.then(rawData => {
-					return KawasakiParser.getControllerObject(rawData).then(result => {
-						if (result === null) {
-							throw new Error(`result is null: ${result}`);
+					return KawasakiParser.getControllerObject(rawData).then(
+						result => {
+							if (result === null) {
+								throw new Error(`result is null: ${result}`);
+							}
+							if (typeof result != "object") {
+								throw new Error(`result is not an object: ${result}`);
+							}
 						}
-						if (typeof result != "object") {
-							throw new Error(`result is not an object: ${result}`);
-						}
-					});
+					);
 				});
 		});
+		it("Returns generic programs", () => {
+			return KawasakiParser.getControllerProgramsArray(data).then(result => {
+				if (result.length < 1) {
+					throw new Error(
+						`result.length value mismatch: ${result.length}`
+					);
+				}
+			});
+		});
 	});
-	describe("Spot Robot", () => {});
+	describe("Spot Robot", () => {
+		it("Returns robot 1 programs", () => {
+			return KawasakiParser.getRobotProgramsArray(data, 1).then(result => {
+				if (result.length < 1) {
+					throw new Error(
+						`result.length value mismatch: ${result.length}`
+					);
+				}
+			});
+		});
+	});
 	describe("MH Robot", () => {
 		it("Returns NC Locator Array", () => {
 			return KawasakiParser.getNCTableArray(data).then(result => {
@@ -205,7 +240,9 @@ describe("Kawasaki Parser", () => {
 			return KawasakiParser.getNCTableArray(data).then(result => {
 				if (result[1].joints[0] != 8.81) {
 					throw new Error(
-						`Result[1].joints[1] value doesn't match: ${result[1].joints[0]}`
+						`Result[1].joints[1] value doesn't match: ${
+							result[1].joints[0]
+						}`
 					);
 				}
 			});
