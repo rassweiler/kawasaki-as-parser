@@ -504,25 +504,26 @@ class KawasakiParser {
 
 	static getRobotProgramsArray = async (parsedControllerData, robotNumber) => {
 		const target = `.PROGRAM r${robotNumber}`;
-		const programs = [];
+		let programs = [];
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				let program = { name: "", arguments: [], lines: [], comment: "" };
 				program.comment = parsedControllerData[i].split(";")[1];
 				let argument = parsedControllerData[i].match(/\((.*?)\)/);
-				console.log("Line:", parsedControllerData[i]);
-				console.log("Argument:", argument);
 				if (argument) {
 					program.arguments = argument[1].split(",");
 				}
 				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
 				while (parsedControllerData[i] != ".END") {
 					let parsed = parsedControllerData[i];
-
+					//TODO: Parse robot programs
 					++i;
 				}
 				programs = [...programs, program];
 			}
+		}
+		if (programs.length > 0) {
+			return programs;
 		}
 		throw new Error(
 			`Unable to locate program information information in ${target}`
@@ -531,7 +532,7 @@ class KawasakiParser {
 
 	static getControllerProgramsArray = async parsedControllerData => {
 		const target = `.PROGRAM`;
-		const programs = [];
+		let programs = [];
 		for (var i = 0; i < parsedControllerData.length; ++i) {
 			if (
 				parsedControllerData[i].startsWith(target) &&
@@ -540,9 +541,9 @@ class KawasakiParser {
 				let program = { name: "", arguments: [], lines: [], comment: "" };
 				program.comment = parsedControllerData[i].split(";")[1];
 				let argument = parsedControllerData[i].match(/\((.*?)\)/);
-				console.log("Line:", parsedControllerData[i]);
-				console.log("Argument:", argument);
-				program.arguments = argument[1].split(",");
+				if (argument) {
+					program.arguments = argument[1].split(",");
+				}
 				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
 				++i;
 				while (parsedControllerData[i] != ".END") {

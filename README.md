@@ -1,6 +1,6 @@
 # kawasaki-as-parser
 
-[![Build Status](https://travis-ci.org/rassweiler/kawasaki-as-parser.svg?branch=master)](https://travis-ci.org/rassweiler/kawasaki-as-parser)
+[![Build Status](https://travis-ci.org/rassweiler/kawasaki-as-parser.svg?branch=master)](https://travis-ci.org/rassweiler/kawasaki-as-parser) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rassweiler/kawasaki-as-parser/blob/master/LICENSE) [![npm version](https://img.shields.io/npm/v/@rassweiler/kawasaki-as-parser.svg?style=flat)](https://www.npmjs.com/package/@rassweiler/kawasaki-as-parser)
 
 Node module for parsing kawasaki as backup files.
 
