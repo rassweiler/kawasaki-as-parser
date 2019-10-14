@@ -516,7 +516,19 @@ class KawasakiParser {
 				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
 				while (parsedControllerData[i] != ".END") {
 					let parsed = parsedControllerData[i];
-					//TODO: Parse robot programs
+					let line = { type: "", comment: "" };
+					if (parsed.startsWith(";")) {
+						line.type = "comment";
+						line.comment = parsed.substr(1);
+					} else {
+						let comment = parsed.split(";");
+						comment.length > 1 ? (line.comment = comment[1]) : null;
+						line.type = "as";
+						let l = parsed.split(";");
+						line.comment = l[1];
+						line.command = l[0];
+					}
+					program.lines = [...program.lines, line];
 					++i;
 				}
 				programs = [...programs, program];

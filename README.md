@@ -38,8 +38,8 @@ let controller = await KawasakiParser.getControllerObject(utf8StringFromAsFile);
 ## Milestones
 
 -  [x] Parse comments
--  [ ] Parse Robot Block Programs
--  [ ] Parse Robot AS Programs
+-  [ ] Parse Robot Programs
+-  [x] Parse Controller Programs
 -  [ ] Parse Robot BCD Info
 -  [ ] Parse AS reals
 -  [ ] Parse AS trans
