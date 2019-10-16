@@ -523,10 +523,31 @@ class KawasakiParser {
 					} else {
 						let comment = parsed.split(";");
 						comment.length > 1 ? (line.comment = comment[1]) : null;
-						line.type = "as";
-						let l = parsed.split(";");
-						line.comment = l[1];
-						line.command = l[0];
+						if (parsed.startsWith("FN")) {
+							let func = parsed.split("[")[0];
+							func.shift(2);
+							line.function = parseInt(func);
+							let args = parsed.split("[")[1];
+							args.pop();
+							line.arguments = args.split(",").filter(Boolean);
+						} else if (
+							parsed.startsWith("JOINT") ||
+							parsed.startsWith("LINEAR")
+						) {
+							parsed = parsed.split(" ").filter(Boolean);
+							parsed[parsed.length - 1].startsWith(";")
+								? parsed.pop()
+								: (parsed[parsed.length - 1] = parsed[
+										parsed.length - 1
+								  ].split(";")[0]);
+							line.interpolation = parsed[0];
+							line.speed = parseInt(parsed[1].pop());
+							line.accuracy = parseInt(parsed[2].pop());
+							line.timer = parseInt(parsed[3].pop());
+							line.tool = parseInt(parsed[4].pop());
+							line.work = parseInt(parsed[5].pop());
+							line.group = parseInt(parsed[6].pop());
+						}
 					}
 					program.lines = [...program.lines, line];
 					++i;
