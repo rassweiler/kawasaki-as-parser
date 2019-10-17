@@ -541,12 +541,23 @@ class KawasakiParser {
 										parsed.length - 1
 								  ].split(";")[0]);
 							line.interpolation = parsed[0];
-							line.speed = parseInt(parsed[1].pop());
+							if (parsed[1].startsWith("SPEED")) {
+								line.speed = parseInt(parsed[1].pop());
+							} else {
+								parsed[1].pop();
+								line.speed = parseInt(parsed[1]);
+							}
 							line.accuracy = parseInt(parsed[2].pop());
 							line.timer = parseInt(parsed[3].pop());
 							line.tool = parseInt(parsed[4].pop());
 							line.work = parseInt(parsed[5].pop());
 							line.group = parseInt(parsed[6].pop());
+							let index = 0;
+							if (parsed[7] === "END" || parsed[7] === "JUMP") {
+								line.operation = parsed[7];
+								++index;
+							}
+							line.clamp = parseInt(parsed[7 + index].pop());
 						}
 					}
 					program.lines = [...program.lines, line];
