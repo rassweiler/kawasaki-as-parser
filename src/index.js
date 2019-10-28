@@ -7,6 +7,12 @@ export const RobotTypes = {
 	98: "Mig",
 	97: "NC Locator"
 };
+export const RobotType = {
+	MH: 7,
+	SPOT: 8,
+	SPOTMH: 9,
+	NCMH: 11
+};
 
 class KawasakiParser {
 	constructor() {}
@@ -33,7 +39,8 @@ class KawasakiParser {
 				this.getRobotVSFLinkArray(parsedControllerData, index),
 				this.getRobotVSFAreaObject(parsedControllerData, index),
 				this.getRobotVSFToolSphereArray(parsedControllerData, index),
-				this.getRobotVSFToolBoxArray(parsedControllerData, index)
+				this.getRobotVSFToolBoxArray(parsedControllerData, index),
+				this.getRobotProgramsArray(parsedControllerData, index)
 			]);
 			let robot = {
 				...results[0],
@@ -45,11 +52,12 @@ class KawasakiParser {
 					linkData: results[4],
 					toolSpheres: results[6],
 					toolBoxes: results[7]
-				}
+				},
+				programs: results[8]
 			};
 			controllerObject.robots = [...controllerObject.robots, robot];
 		}
-		if (controllerObject.robots[0].robotType === RobotTypes.NCMH) {
+		if (controllerObject.robots[0].robotType === RobotType.NCMH) {
 			try {
 				controllerObject.ncTable = await this.getNCTableArray(
 					parsedControllerData
@@ -67,7 +75,13 @@ class KawasakiParser {
 		} catch (error) {
 			console.log("KAP Comment Error:", error);
 		}
-
+		try {
+			controllerObject.programs = await this.getControllerProgramsArray(
+				parsedControllerData
+			);
+		} catch (error) {
+			console.log("KAP Comment Error:", error);
+		}
 		return controllerObject;
 	};
 
@@ -525,10 +539,9 @@ class KawasakiParser {
 						comment.length > 1 ? (line.comment = comment[1]) : null;
 						if (parsed.startsWith("FN")) {
 							let func = parsed.split("[")[0];
-							func.shift(2);
-							line.function = parseInt(func);
+							line.function = parseInt(func.slice(2));
 							let args = parsed.split("[")[1];
-							args.pop();
+							args = args.substring(0, args.length - 1);
 							line.arguments = args.split(",").filter(Boolean);
 						} else if (
 							parsed.startsWith("JOINT") ||
@@ -542,22 +555,37 @@ class KawasakiParser {
 								  ].split(";")[0]);
 							line.interpolation = parsed[0];
 							if (parsed[1].startsWith("SPEED")) {
-								line.speed = parseInt(parsed[1].pop());
+								line.speed = parseInt(
+									parsed[1].slice(parsed[1].length - 2)
+								);
 							} else {
-								parsed[1].pop();
-								line.speed = parseInt(parsed[1]);
+								line.speed = parseInt(
+									parsed[1].substring(0, parsed[1].length)
+								);
 							}
-							line.accuracy = parseInt(parsed[2].pop());
-							line.timer = parseInt(parsed[3].pop());
-							line.tool = parseInt(parsed[4].pop());
-							line.work = parseInt(parsed[5].pop());
-							line.group = parseInt(parsed[6].pop());
+							line.accuracy = parseInt(
+								parsed[2].slice(parsed[2].length - 2)
+							);
+							line.timer = parseInt(
+								parsed[3].slice(parsed[3].length - 2)
+							);
+							line.tool = parseInt(
+								parsed[4].slice(parsed[4].length - 2)
+							);
+							line.work = parseInt(
+								parsed[5].slice(parsed[5].length - 2)
+							);
+							line.group = parseInt(
+								parsed[6].slice(parsed[6].length - 2)
+							);
 							let index = 0;
 							if (parsed[7] === "END" || parsed[7] === "JUMP") {
 								line.operation = parsed[7];
 								++index;
 							}
-							line.clamp = parseInt(parsed[7 + index].pop());
+							line.clamp = parseInt(
+								parsed[7 + index].slice(parsed[7 + index].length - 2)
+							);
 						}
 					}
 					program.lines = [...program.lines, line];
