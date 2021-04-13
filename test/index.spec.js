@@ -1,8 +1,64 @@
 import fs from "fs";
+import { expect } from "chai";
 import KawasakiParser from "../index.js";
-import { describe } from "mocha";
 import { data } from "./Samples/data.js";
 
+describe('The getRobotDataStringArray function', () =>{
+	it('Should return an object with data and errors if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getRobotDataStringArray("");
+		expect(data).to.be.a('object');
+		expect(data).to.have.property('data');
+		expect(data).to.have.property('errors');
+	});
+
+	it('Should contain errors if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getRobotDataStringArray("");
+		expect(data.errors).to.be.a('array');
+		expect(data.errors).to.not.have.lengthOf(0);
+	});
+});
+
+describe('The getControllerObject function', () =>{
+	it('Should return an object if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject).to.be.a('object');
+	});
+
+	it('Should have an empty controllerType if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject.controllerType).to.be.equal('');
+	});
+
+	it('Should have Kawasaki as a manufacturer if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject.manufacturer).to.be.equal('Kawasaki');
+	});
+
+	it('Should contain no robots if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject.robots).to.be.a('array');
+		expect(controllerObject.robots).to.be.eql([]);
+	});
+
+	it('Should contain no common programs if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject.commonPrograms).to.be.a('array');
+		expect(controllerObject.commonPrograms).to.be.eql([]);
+	});
+
+	it('Should contain no IO comments if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject.ioComments).to.be.a('object');
+		expect(controllerObject.ioComments).to.be.eql({inputs:[], outputs: []});
+	});
+
+	it('Should contain errors if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject.errors).to.be.a('array');
+		expect(controllerObject.errors).to.not.have.lengthOf(0);
+	});
+});
+/*
 describe("Kawasaki Parser", () => {
 	describe("General Robot", () => {
 		it("Returns robot 1 model", () => {
@@ -250,3 +306,4 @@ describe("Kawasaki Parser", () => {
 	});
 	describe("Mig Robot", () => {});
 });
+*/

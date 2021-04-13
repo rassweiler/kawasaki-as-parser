@@ -1,8 +1,16 @@
 # kawasaki-as-parser
 
-[![Build Status](https://travis-ci.org/rassweiler/kawasaki-as-parser.svg?branch=master)](https://travis-ci.org/rassweiler/kawasaki-as-parser) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/rassweiler/kawasaki-as-parser/blob/master/LICENSE) [![npm version](https://img.shields.io/npm/v/@rassweiler/kawasaki-as-parser.svg?style=flat)](https://www.npmjs.com/package/@rassweiler/kawasaki-as-parser)
+<div align="center">
+
+[![Build Status][github-actions-status]][github-actions-url]
+[![Github Tag][github-tag-image]][github-tag-url]
+[![StackOverflow][stackoverflow-img]][stackoverflow-url]
+[![GitHub license][liscense-tag]][liscense-url]
+[![npm version][npm-version-tag]][npm-version]
 
 Node module for parsing kawasaki as backup files.
+
+</div>
 
 ## Install
 
@@ -48,3 +56,14 @@ let controller = await KawasakiParser.getControllerObject(utf8StringFromAsFile);
 -  [ ] Parse AS strings
 -  [ ] Parse Spot Weld Info
 -  [ ] Parse MIG Weld Info
+
+[github-actions-status]: https://github.com/rassweiler/kawasaki-as-parser/workflows/Test/badge.svg
+[github-actions-url]: https://github.com/rassweiler/kawasaki-as-parser/actions
+[github-tag-image]: https://img.shields.io/github/v/tag/rassweiler/kawasaki-as-parser?label=version
+[github-tag-url]: https://github.com/rassweiler/kawasaki-as-parser/releases/latest
+[stackoverflow-img]: https://img.shields.io/badge/stackoverflow-robot__project__utility-blue.svg
+[stackoverflow-url]: https://stackoverflow.com/questions/tagged/kawasaki-as-parser
+[liscense-url]: https://github.com/rassweiler/kawasaki-as-parser/blob/master/LICENSE
+[liscense-tag]: https://img.shields.io/badge/license-MIT-blue.svg
+[npm-version-tag]: https://img.shields.io/npm/v/@rassweiler/kawasaki-as-parser.svg?style=flat
+[npm-version]: https://www.npmjs.com/package/@rassweiler/kawasaki-as-parser

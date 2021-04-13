@@ -1,110 +1,176 @@
-export const RobotTypes = {
+import { ControllerObjectAlias, IOCommentObjectAlias } from "./alias";
+
+/****************************************************************************
+ *	Enum for translating int values from robot controller to readable
+ *	robot types
+ *
+ *
+ ****************************************************************************/
+const RobotTypes = {
 	8: "Spot",
 	7: "MH",
-	11: "NC MH",
+	11: "NC",
 	96: "Spot-MH",
-	99: "Vision-MH",
+	99: "Vision",
 	98: "Mig",
-	97: "NC Locator"
-};
-export const RobotType = {
-	MH: 7,
-	SPOT: 8,
-	SPOTMH: 9,
-	NCMH: 11
+	97: "Locator",
+	900: "Hem",
 };
 
-class KawasakiParser {
-	constructor() {}
+export default class KawasakiParser {
+	/***********************************************************************
+	 *	Main Entry Point
+	 *
+	 *	Expects a utf8 string buffer containing the contents of an as file.
+	 *	Returns a promise, object of structure ControllerObjectAlias (see alias.ts)
+	 ************************************************************************/
+	static getControllerObject = async (
+		rawStringData: string
+	): Promise<ControllerObjectAlias> => {
+		// Parse controller data
+		let parsedControllerData;
+		let numberOfRobots = 0;
+		const controllerObject: ControllerObjectAlias = {
+			controllerType: "",
+			manufacturer: "Kawasaki",
+			robots: [],
+			ioComments: { inputs: [], outputs: [] },
+			commonPrograms: [],
+			errors: [],
+		};
 
-	static getControllerObject = async rawStringData => {
-		let parsedControllerData, numberOfRobots;
+		// Parse utf8 string into array of formatted strings for each line
 		try {
-			parsedControllerData = await this.getRobotDataStringArray(
+			const data = await KawasakiParser.getRobotDataStringArray(
 				rawStringData
 			);
-			numberOfRobots = await this.getNumberOfRobotsInController(
+			parsedControllerData = data.data;
+			controllerObject.errors.concat(data.errors);
+		} catch (error) {
+			controllerObject.errors.push(error);
+		}
+
+		// Determine number of robots in controller
+		try {
+			numberOfRobots = await KawasakiParser.getNumberOfRobotsInController(
 				parsedControllerData
 			);
 		} catch (error) {
-			throw error;
+			controllerObject.errors.push(error);
 		}
-		let controllerObject = { robots: [] };
-		for (let index = 1; index <= numberOfRobots; ++index) {
-			let results = await Promise.all([
-				this.getRobotInformationObject(parsedControllerData, index),
-				this.getRobotTCPCOGArray(parsedControllerData, index),
-				this.getRobotInstallPositionObject(parsedControllerData, index),
-				this.getRobotJointLimitArray(parsedControllerData, index),
-				this.getRobotVSFLinkArray(parsedControllerData, index),
-				this.getRobotVSFAreaObject(parsedControllerData, index),
-				this.getRobotVSFToolSphereArray(parsedControllerData, index),
-				this.getRobotVSFToolBoxArray(parsedControllerData, index),
-				this.getRobotProgramsArray(parsedControllerData, index)
-			]);
-			let robot = {
-				...results[0],
-				tools: results[1],
-				installPosition: results[2],
-				softLimits: results[3],
-				vsf: {
-					...results[5],
-					linkData: results[4],
-					toolSpheres: results[6],
-					toolBoxes: results[7]
-				},
-				programs: results[8]
-			};
-			controllerObject.robots = [...controllerObject.robots, robot];
-		}
-		if (controllerObject.robots[0].robotType === RobotType.NCMH) {
-			try {
-				controllerObject.ncTable = await this.getNCTableArray(
-					parsedControllerData
-				);
-			} catch (error) {
-				controllerObject.ncTable = [];
-				console.log("KAP NC Table Error:", error);
+
+		// Parse robot specific data
+		if (numberOfRobots > 0) {
+			for (let index = 1; index <= numberOfRobots; ++index) {
+				const results = await Promise.all([
+					KawasakiParser.getRobotInformationObject(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotTCPCOGArray(parsedControllerData, index),
+					KawasakiParser.getRobotInstallPositionObject(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotJointLimitArray(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotVSFLinkArray(parsedControllerData, index),
+					KawasakiParser.getRobotVSFAreaObject(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotVSFToolSphereArray(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotVSFToolBoxArray(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotProgramsArray(
+						parsedControllerData,
+						index
+					),
+				]);
+				const robot = {
+					...results[0],
+					tools: results[1],
+					installPosition: results[2],
+					softLimits: results[3],
+					vsf: {
+						...results[5],
+						linkData: results[4],
+						toolSpheres: results[6],
+						toolBoxes: results[7],
+					},
+					programs: results[8],
+				};
+				controllerObject.robots = [...controllerObject.robots, robot];
+			}
+			if (controllerObject.robots[0].robotType === RobotType.NCMH) {
+				try {
+					controllerObject.ncTable = await KawasakiParser.getNCTableArray(
+						parsedControllerData
+					);
+				} catch (error) {
+					controllerObject.ncTable = [];
+					console.log("KAP NC Table Error:", error);
+				}
 			}
 		}
+
+		// Parse controller IO comments
 		try {
-			let comments = await this.getRobotIOCommentsObject(
+			controllerObject.ioComments = await KawasakiParser.getRobotIOCommentsObject(
 				parsedControllerData
 			);
-			controllerObject = { ...controllerObject, ...comments };
 		} catch (error) {
-			console.log("KAP Comment Error:", error);
+			controllerObject.errors.push(error);
 		}
+
 		try {
-			controllerObject.programs = await this.getControllerProgramsArray(
+			controllerObject.commonPrograms = await KawasakiParser.getControllerProgramsArray(
 				parsedControllerData
 			);
 		} catch (error) {
-			console.log("KAP Comment Error:", error);
+			controllerObject.errors.push(error);
 		}
 		return controllerObject;
 	};
 
-	static getRobotDataStringArray = async rawControllerString => {
-		this.parsedControllerData = rawControllerString.split("\n");
-
-		//AS files often have extra characters, must trim all lines.
-		for (var i = 0; i < this.parsedControllerData.length; ++i) {
-			this.parsedControllerData[i] = this.parsedControllerData[i].trim();
+	static getRobotDataStringArray = async (
+		rawControllerString: string
+	): Promise<{ data: string[]; errors: string[] }> => {
+		const errors: string[] = [];
+		let data: string[] = [];
+		if (rawControllerString === "") {
+			errors.push("Error: rawData is empty string");
+		} else {
+			const parsedControllerData = rawControllerString.split("\n");
+			//AS files often have extra characters, must trim all lines.
+			for (let i = 0; i < parsedControllerData.length; ++i) {
+				parsedControllerData[i] = parsedControllerData[i].trim();
+			}
+			data = parsedControllerData;
 		}
-		return this.parsedControllerData;
+
+		return { data: data, errors: errors };
 	};
 
 	static getRobotInformationObject = async (
 		parsedControllerData,
 		robotNumber
 	) => {
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === `.ROBOTDATA${robotNumber}`) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("ZROBOT.TYPE")) {
-						var info = {};
-						let line = parsedControllerData[i].split(" ").filter(Boolean);
+						const info = {};
+						const line = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
 						info.robotType = parseInt(line[3]);
 						info.robotModel = line[6].split("-")[0];
 						return info;
@@ -115,34 +181,40 @@ class KawasakiParser {
 		}
 	};
 
-	static getNumberOfRobotsInController = async parsedControllerData => {
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+	static getNumberOfRobotsInController = async (parsedControllerData) => {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith("ZSYSTEM")) {
-				let line = parsedControllerData[i].split(" ").filter(Boolean);
+				const line = parsedControllerData[i].split(" ").filter(Boolean);
 				return parseInt(line[1]);
 			}
 		}
 		throw new Error("Unable to locate number of robots");
 	};
 
-	static getRobotIOCommentsObject = async parsedControllerData => {
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+	static getRobotIOCommentsObject = async (
+		parsedControllerData: string[]
+	): Promise<IOCommentObjectAlias> => {
+		const comments = {
+			inputs: [],
+			outputs: [],
+		};
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === ".SIG_NAME_LANG2") {
 				++i;
-				let comments = { outputs: [], inputs: [] };
 				while (parsedControllerData[i] != ".END") {
-					let line = parsedControllerData[i].split(" ").filter(Boolean);
+					const line = parsedControllerData[i].split(" ").filter(Boolean);
 					if (line[0].slice(0, 4) === "N_OX") {
-						let output = { signal: -1, comment: "" };
-						output.signal = parseInt(line[0].slice(4));
-						output.comment = parsedControllerData[i].substring(
+						const output = { signal: -1, comment: "" };
+						const signal = parseInt(line[0].slice(4));
+						let comment = parsedControllerData[i].substring(
 							parsedControllerData[i].indexOf('"') + 1,
 							parsedControllerData[i].lastIndexOf('"')
 						);
-						output.comment === '"' ? (output.comment = "") : null;
-						comments.outputs = [...comments.outputs, output];
+						comment === '"' ? (comment = "") : null;
+						typeof signal === "number" ? (output.signal = signal) : null;
+						comments.outputs.push(output);
 					} else if (line[0].slice(0, 4) === "N_WX") {
-						let input = { signal: -1, comment: "" };
+						const input = { signal: -1, comment: "" };
 						input.signal = parseInt(line[0].slice(4));
 						input.comment = parsedControllerData[i].substring(
 							parsedControllerData[i].indexOf('"') + 1,
@@ -154,25 +226,24 @@ class KawasakiParser {
 					++i;
 				}
 				if (comments.inputs.length > 0) {
-					return comments;
 				} else {
 					throw new Error(`Input or output arrays are empty`);
 				}
 			}
 		}
-		throw new Error("Unable to locate robot numbers");
+		return comments;
 	};
 
-	static getNCTableArray = async parsedControllerData => {
-		let ncs = 64;
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+	static getNCTableArray = async (parsedControllerData) => {
+		const ncs = 64;
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith("MAT_TBL[1]")) {
 				let mh = [];
-				let start = i;
-				let end = start + ncs * 2;
+				const start = i;
+				const end = start + ncs * 2;
 				for (let startIndex = start; startIndex < end; ++startIndex) {
-					let nc = { joints: [], comment: "" };
-					let line = parsedControllerData[startIndex]
+					const nc = { joints: [], comment: "" };
+					const line = parsedControllerData[startIndex]
 						.split(" ")
 						.filter(Boolean);
 					line.shift();
@@ -194,17 +265,17 @@ class KawasakiParser {
 	};
 
 	static getRobotTCPCOGArray = async (parsedControllerData, robotNumber) => {
-		let target = `.AUXDATA${robotNumber > 1 ? robotNumber : ""}`;
-		let maxTools = 9;
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		const target = `.AUXDATA${robotNumber > 1 ? robotNumber : ""}`;
+		const maxTools = 9;
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("TOOL1")) {
-						let start = i;
-						let end = start + maxTools * 2;
+						const start = i;
+						const end = start + maxTools * 2;
 						let tools = [];
 						for (let t = start; t < end; ++t) {
-							let tool = { tcp: {}, cog: {} };
+							const tool = { tcp: {}, cog: {} };
 							let line = parsedControllerData[t]
 								.split(" ")
 								.filter(Boolean);
@@ -241,8 +312,8 @@ class KawasakiParser {
 		parsedControllerData,
 		robot
 	) => {
-		let target = `.VSFDATA${robot}`;
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		const target = `.VSFDATA${robot}`;
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === target) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("SYS_BASE")) {
@@ -252,7 +323,7 @@ class KawasakiParser {
 						if (line.length < 7) {
 							throw new Error("Data retrieved is missing values");
 						}
-						let install = {};
+						const install = {};
 						install.x = parseFloat(line[1]);
 						install.y = parseFloat(line[2]);
 						install.z = parseFloat(line[3]);
@@ -277,20 +348,22 @@ class KawasakiParser {
 		const target1 = `.AUXDATA${robotNumber > 1 ? robotNumber : ""}`;
 		const target2 = `.ROBOTDATA${robotNumber}`;
 		let limits = [];
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target2)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("ZULIMIT")) {
-						let max = parsedControllerData[i].split(" ").filter(Boolean);
+						const max = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
 						max.shift();
 						max.pop();
-						let min = parsedControllerData[i + 1]
+						const min = parsedControllerData[i + 1]
 							.split(" ")
 							.filter(Boolean);
 						min.shift();
 						min.pop();
 						for (let index = 0; index < max.length; ++index) {
-							let limit = {};
+							const limit = {};
 							limit.max = parseFloat(max[index]);
 							limit.min = parseFloat(min[index]);
 							limits = [...limits, limit];
@@ -302,11 +375,11 @@ class KawasakiParser {
 			if (parsedControllerData[i].startsWith(target1)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("UP-LIM")) {
-						let upper = parsedControllerData[i]
+						const upper = parsedControllerData[i]
 							.split(" ")
 							.filter(Boolean);
 						upper.shift();
-						let lower = parsedControllerData[i + 1]
+						const lower = parsedControllerData[i + 1]
 							.split(" ")
 							.filter(Boolean);
 						lower.shift();
@@ -328,14 +401,14 @@ class KawasakiParser {
 	static getRobotVSFLinkArray = async (parsedControllerData, robotNumber) => {
 		const target = `.VSFDATA${robotNumber}`;
 		const params = 8;
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_ARMPARAM2")) {
 						let links = [];
 						for (let index = 0; index < params; ++index) {
-							let link = {};
-							let line = parsedControllerData[i + index]
+							const link = {};
+							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
 							link.radius = parseFloat(line[1]) / 10;
@@ -363,19 +436,21 @@ class KawasakiParser {
 		}
 		const target = `.VSFDATA${robotNumber}`;
 		const areas = 9;
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_AREA1")) {
-						let vsf = {};
-						let line = parsedControllerData[i].split(" ").filter(Boolean);
-						let area = {};
+						const vsf = {};
+						const line = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						const area = {};
 						area.enabled = parseInt(line[1]);
 						area.upper = parseFloat(line[34]) / 100;
 						area.lower = parseFloat(line[35]) / 100;
 						area.lines = [];
 						for (let l = 0; l < 8; ++l) {
-							let al = {};
+							const al = {};
 							al.x1 = parseFloat(line[4 * l + 2]) / 100;
 							al.y1 = parseFloat(line[4 * l + 3]) / 100;
 							al.x2 = parseFloat(line[4 * l + 4]) / 100;
@@ -385,8 +460,8 @@ class KawasakiParser {
 						vsf.area = area;
 						vsf.parts = [];
 						for (let index = 1; index < areas; ++index) {
-							let part = {};
-							let line = parsedControllerData[i + index]
+							const part = {};
+							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
 							part.enabled = parseInt(line[1]);
@@ -394,7 +469,7 @@ class KawasakiParser {
 							part.lower = parseFloat(line[19]) / 100;
 							part.lines = [];
 							for (let l = 0; l < 4; ++l) {
-								let al = {};
+								const al = {};
 								al.x1 = parseFloat(line[4 * l + 2]) / 100;
 								al.y1 = parseFloat(line[4 * l + 3]) / 100;
 								al.x2 = parseFloat(line[4 * l + 4]) / 100;
@@ -418,24 +493,24 @@ class KawasakiParser {
 	) => {
 		const target = `.VSFDATA${robotNumber}`;
 		const toolnum = 9;
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_TOOLSP10")) {
 						let tools = [];
 						for (let index = 0; index < toolnum; ++index) {
-							let line = parsedControllerData[i + index * 2]
+							const line = parsedControllerData[i + index * 2]
 								.split(" ")
 								.filter(Boolean);
-							let line2 = parsedControllerData[i + index * 2]
+							const line2 = parsedControllerData[i + index * 2]
 								.split(" ")
 								.filter(Boolean);
-							let tool = {};
+							const tool = {};
 							let page1 = [];
 							let page2 = [];
 							for (let s = 0; s < 10; ++s) {
-								let s1 = {};
-								let s2 = {};
+								const s1 = {};
+								const s2 = {};
 								s1.x = parseFloat(line[4 * s + 1]) / 10;
 								s1.y = parseFloat(line[4 * s + 2]) / 10;
 								s1.z = parseFloat(line[4 * s + 3]) / 10;
@@ -467,16 +542,16 @@ class KawasakiParser {
 	) => {
 		const target = `.VSFDATA${robotNumber}`;
 		const toolnum = 9;
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				let tools = [];
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_TOOLBOX1 ")) {
 						for (let index = 0; index < toolnum; ++index) {
-							let line = parsedControllerData[i + index]
+							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
-							let tool = {};
+							const tool = {};
 							tool.rotation = parseFloat(line[1]) / 100;
 							tool.x = parseFloat(line[2]) / 100;
 							tool.y = parseFloat(line[3]) / 100;
@@ -489,12 +564,12 @@ class KawasakiParser {
 					}
 					if (parsedControllerData[i].startsWith("VSF_ETCSP1 ")) {
 						for (let index = 0; index < toolnum; ++index) {
-							let line = parsedControllerData[i + index]
+							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
 							tools[index].spheres = [];
-							let s1 = {};
-							let s2 = {};
+							const s1 = {};
+							const s2 = {};
 							s1.radius = parseFloat(line[1]) / 10;
 							s1.x = parseFloat(line[2]) / 10;
 							s1.y = parseFloat(line[3]) / 10;
@@ -519,26 +594,26 @@ class KawasakiParser {
 	static getRobotProgramsArray = async (parsedControllerData, robotNumber) => {
 		const target = `.PROGRAM r${robotNumber}`;
 		let programs = [];
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
-				let program = { name: "", arguments: [], lines: [], comment: "" };
+				const program = { name: "", arguments: [], lines: [], comment: "" };
 				program.comment = parsedControllerData[i].split(";")[1];
-				let argument = parsedControllerData[i].match(/\((.*?)\)/);
+				const argument = parsedControllerData[i].match(/\((.*?)\)/);
 				if (argument) {
 					program.arguments = argument[1].split(",");
 				}
 				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
 				while (parsedControllerData[i] != ".END") {
 					let parsed = parsedControllerData[i];
-					let line = { type: "", comment: "" };
+					const line = { type: "", comment: "" };
 					if (parsed.startsWith(";")) {
 						line.type = "comment";
 						line.comment = parsed.substr(1);
 					} else {
-						let comment = parsed.split(";");
+						const comment = parsed.split(";");
 						comment.length > 1 ? (line.comment = comment[1]) : null;
 						if (parsed.startsWith("FN")) {
-							let func = parsed.split("[")[0];
+							const func = parsed.split("[")[0];
 							line.function = parseInt(func.slice(2));
 							let args = parsed.split("[")[1];
 							args = args.substring(0, args.length - 1);
@@ -602,31 +677,31 @@ class KawasakiParser {
 		);
 	};
 
-	static getControllerProgramsArray = async parsedControllerData => {
+	static getControllerProgramsArray = async (parsedControllerData) => {
 		const target = `.PROGRAM`;
 		let programs = [];
-		for (var i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (
 				parsedControllerData[i].startsWith(target) &&
 				!parsedControllerData[i].includes("_pg")
 			) {
-				let program = { name: "", arguments: [], lines: [], comment: "" };
+				const program = { name: "", arguments: [], lines: [], comment: "" };
 				program.comment = parsedControllerData[i].split(";")[1];
-				let argument = parsedControllerData[i].match(/\((.*?)\)/);
+				const argument = parsedControllerData[i].match(/\((.*?)\)/);
 				if (argument) {
 					program.arguments = argument[1].split(",");
 				}
 				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
 				++i;
 				while (parsedControllerData[i] != ".END") {
-					let parsed = parsedControllerData[i];
-					let line = { type: "", comment: "" };
+					const parsed = parsedControllerData[i];
+					const line = { type: "", comment: "" };
 					if (parsed.startsWith(";")) {
 						line.type = "comment";
 						line.comment = parsed.substr(1);
 					} else if (parsed.includes(";")) {
 						line.type = "as";
-						let l = parsed.split(";");
+						const l = parsed.split(";");
 						line.comment = l[1];
 						line.command = l[0];
 					} else {
@@ -647,5 +722,3 @@ class KawasakiParser {
 		);
 	};
 }
-
-export default KawasakiParser;

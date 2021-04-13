@@ -1,15 +1,17 @@
 {
 	"name": "@rassweiler/kawasaki-as-parser",
-	"version": "1.0.1",
+	"version": "2.0.0",
 	"description": "Kawasaki backup parser",
-	"main": "index.js",
+	"main": "lib/index.js",
 	"scripts": {
 		"mocha": "mocha --require @babel/register",
-		"build": "babel src --out-dir lib",
-		"test": "npm run build && npm run mocha",
-		"preversion": "npm test",
+		"build": "babel src/index.ts --out-dir lib --extensions \".ts\"",
+		"test": "yarn build && yarn mocha",
+		"preversion": "yarn test",
 		"version": "git add -A",
-		"postversion": "git push && git push --tags"
+		"postversion": "git push && git push --tags",
+		"lint": "eslint . --cache --ext .js,.jsx,.ts,.tsx",
+		"lint:fix": "eslint . --fix --cache --ext .js,.jsx,.ts,.tsx"
 	},
 	"repository": {
 		"type": "git",
@@ -40,9 +42,18 @@
 		"@babel/plugin-proposal-class-properties": "^7.5.5",
 		"@babel/plugin-transform-runtime": "^7.6.0",
 		"@babel/preset-env": "^7.5.5",
+		"@babel/preset-typescript": "^7.12.7",
 		"@babel/register": "^7.5.5",
 		"@babel/runtime": "^7.6.0",
+		"@typescript-eslint/eslint-plugin": "^4.21.0",
+		"@typescript-eslint/parser": "^4.21.0",
 		"chai": "*",
-		"mocha": "*"
+		"eslint": "^7.24.0",
+		"eslint-config-prettier": "^8.1.0",
+		"eslint-plugin-prettier": "^3.3.1",
+		"mocha": "*",
+		"nyc": "^15.1.0",
+		"prettier": "^2.2.1",
+		"typescript": "^4.2.4"
 	}
 }
