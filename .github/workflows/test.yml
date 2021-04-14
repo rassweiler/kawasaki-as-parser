@@ -38,4 +38,4 @@ jobs:
           yarn build
           yarn lint
           yarn tsc
-          yarn test
+          yarn test:github

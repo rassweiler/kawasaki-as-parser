@@ -1,21 +1,9 @@
-import { ControllerObjectAlias, IOCommentObjectAlias } from "./alias";
-
-/****************************************************************************
- *	Enum for translating int values from robot controller to readable
- *	robot types
- *
- *
- ****************************************************************************/
-const RobotTypes = {
-	8: "Spot",
-	7: "MH",
-	11: "NC",
-	96: "Spot-MH",
-	99: "Vision",
-	98: "Mig",
-	97: "Locator",
-	900: "Hem",
-};
+import {
+	ControllerObjectAlias,
+	IOCommentObjectAlias,
+	RobotObjectAlias,
+	MHObjectAlias,
+} from "./alias";
 
 export default class KawasakiParser {
 	/***********************************************************************
@@ -28,12 +16,13 @@ export default class KawasakiParser {
 		rawStringData: string
 	): Promise<ControllerObjectAlias> => {
 		// Parse controller data
-		let parsedControllerData;
+		let parsedControllerData: string[] = [];
 		let numberOfRobots = 0;
 		const controllerObject: ControllerObjectAlias = {
 			controllerType: "",
 			manufacturer: "Kawasaki",
 			robots: [],
+			ncTable: [],
 			ioComments: { inputs: [], outputs: [] },
 			commonPrograms: [],
 			errors: [],
@@ -52,9 +41,13 @@ export default class KawasakiParser {
 
 		// Determine number of robots in controller
 		try {
-			numberOfRobots = await KawasakiParser.getNumberOfRobotsInController(
+			const data = await KawasakiParser.getNumberOfRobotsInController(
 				parsedControllerData
 			);
+			data.data !== 0 ? (numberOfRobots = data.data) : null;
+			data.errors.length > 0
+				? controllerObject.errors.concat(data.errors)
+				: null;
 		} catch (error) {
 			controllerObject.errors.push(error);
 		}
@@ -62,7 +55,17 @@ export default class KawasakiParser {
 		// Parse robot specific data
 		if (numberOfRobots > 0) {
 			for (let index = 1; index <= numberOfRobots; ++index) {
-				const results = await Promise.all([
+				const [
+					robotInfo,
+					robotTCP,
+					robotInstall,
+					robotJoint,
+					robotLink,
+					robotArea,
+					robotSphere,
+					robotBox,
+					robotPrograms,
+				] = await Promise.all([
 					KawasakiParser.getRobotInformationObject(
 						parsedControllerData,
 						index
@@ -94,7 +97,42 @@ export default class KawasakiParser {
 						index
 					),
 				]);
-				const robot = {
+				const robot: RobotObjectAlias = {
+					robotType: "",
+					robotModel: "",
+					tools: [],
+					installPosition: {
+						x: 0,
+						y: 0,
+						z: 0,
+						rx: 0,
+						ry: 0,
+						rz: 0,
+					},
+					vsf: {
+						area: {
+							enabled: false,
+							upper: 0,
+							lower: 0,
+							lines: [],
+						},
+						parts: [],
+						linkData: [],
+						toolSpheres: [],
+						toolBoxes: [],
+						softLimits: [],
+					},
+					spot: [],
+					rac: [],
+					programs: [],
+				};
+				robotInfo.errors.length > 0
+					? controllerObject.errors.concat(robotInfo.errors)
+					: null;
+				robot.robotType = robotInfo.data.robotType;
+				robot.robotModel = robotInfo.data.robotModel;
+				/*
+				const robottttttt = {
 					...results[0],
 					tools: results[1],
 					installPosition: results[2],
@@ -107,9 +145,10 @@ export default class KawasakiParser {
 					},
 					programs: results[8],
 				};
-				controllerObject.robots = [...controllerObject.robots, robot];
+				*/
+				controllerObject.robots.push(robot);
 			}
-			if (controllerObject.robots[0].robotType === RobotType.NCMH) {
+			if (controllerObject.robots[0].robotType === "NC") {
 				try {
 					controllerObject.ncTable = await KawasakiParser.getNCTableArray(
 						parsedControllerData
@@ -120,7 +159,7 @@ export default class KawasakiParser {
 				}
 			}
 		}
-
+		/*
 		// Parse controller IO comments
 		try {
 			controllerObject.ioComments = await KawasakiParser.getRobotIOCommentsObject(
@@ -137,9 +176,16 @@ export default class KawasakiParser {
 		} catch (error) {
 			controllerObject.errors.push(error);
 		}
+		*/
 		return controllerObject;
 	};
 
+	/***********************************************************************
+	 *	Parse utf8 string into array of parsed lines
+	 *
+	 *	Expects a utf8 string containing the contents of an as file.
+	 *	Returns a promise, object of structure {data: string[], errors: string[]}
+	 ************************************************************************/
 	static getRobotDataStringArray = async (
 		rawControllerString: string
 	): Promise<{ data: string[]; errors: string[] }> => {
@@ -159,36 +205,157 @@ export default class KawasakiParser {
 		return { data: data, errors: errors };
 	};
 
+	/***********************************************************************
+	 *	Determine Number Of Robots in controller
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file.
+	 *	Returns a promise, object of structure {data: number, errors: string[]}
+	 ************************************************************************/
+	static getNumberOfRobotsInController = async (
+		parsedControllerData: string[]
+	): Promise<{ data: number; errors: string[] }> => {
+		const data: { data: number; errors: string[] } = {
+			data: 0,
+			errors: [],
+		};
+		for (let i = 0; i < parsedControllerData.length; ++i) {
+			if (parsedControllerData[i].startsWith("ZSYSTEM")) {
+				const line = parsedControllerData[i].split(" ").filter(Boolean);
+				try {
+					data.data = parseInt(line[1]);
+				} catch (error) {
+					data.errors.push("Unable to parse number");
+				}
+				return data;
+			}
+		}
+		data.errors.push("Unable to locate number of robots");
+		return data;
+	};
+
+	/***********************************************************************
+	 *	Get Human Readable Robot type from integer
+	 *
+	 *	Expects an integer.
+	 *	Returns an object of structure {data: string, errors: string[]}
+	 ************************************************************************/
+	static getRobotTypeFromInt = (
+		type: number
+	): {
+		data:
+			| "MH"
+			| "Spot"
+			| "NC"
+			| "Spot-MH"
+			| "Vision"
+			| "Mig"
+			| "Hem"
+			| "Locator"
+			| "";
+		errors: string[];
+	} => {
+		let robotType = "";
+		const errors: string[] = [];
+		if (Number.isInteger(type)) {
+			switch (type) {
+				case 7:
+					robotType = "MH";
+					break;
+				case 8:
+					robotType = "Spot";
+					break;
+				case 11:
+					robotType = "NC";
+					break;
+				case 96:
+					robotType = "Spot-MH";
+					break;
+				case 97:
+					robotType = "Locator";
+					break;
+				case 98:
+					robotType = "Mig";
+					break;
+				case 99:
+					robotType = "Vision";
+					break;
+				case 900:
+					robotType = "Hem";
+					break;
+				default:
+					errors.push("Error: type number provided not found");
+					break;
+			}
+		} else {
+			errors.push("Error: type number provided no an integer");
+		}
+		return { data: robotType, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Parse general robot information
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and a robot number.
+	 *	Returns a promise, object of structure {data: {robotType: string, robotModel: string}, errors: string[]}
+	 ************************************************************************/
 	static getRobotInformationObject = async (
-		parsedControllerData,
-		robotNumber
-	) => {
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{
+		data: {
+			robotType:
+				| "MH"
+				| "Spot"
+				| "NC"
+				| "Spot-MH"
+				| "Vision"
+				| "Mig"
+				| "Hem"
+				| "Locator"
+				| "";
+			robotModel: string;
+		};
+		errors: string[];
+	}> => {
+		const data: {
+			robotType:
+				| "MH"
+				| "Spot"
+				| "NC"
+				| "Spot-MH"
+				| "Vision"
+				| "Mig"
+				| "Hem"
+				| "Locator"
+				| "";
+			robotModel: string;
+		} = {
+			robotType: "",
+			robotModel: "",
+		};
+		const errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === `.ROBOTDATA${robotNumber}`) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("ZROBOT.TYPE")) {
-						const info = {};
 						const line = parsedControllerData[i]
 							.split(" ")
 							.filter(Boolean);
-						info.robotType = parseInt(line[3]);
-						info.robotModel = line[6].split("-")[0];
-						return info;
+						const rData = KawasakiParser.getRobotTypeFromInt(
+							parseInt(line[3])
+						);
+						rData.errors.length > 0 ? errors.concat(rData.errors) : null;
+						data.robotType = rData.data;
+						data.robotModel = line[6].split("-")[0];
+						return { data: data, errors: errors };
 					}
 					++i;
 				}
+				errors.push("Unable to locate ZROBOT.TYPE");
 			}
 		}
-	};
-
-	static getNumberOfRobotsInController = async (parsedControllerData) => {
-		for (let i = 0; i < parsedControllerData.length; ++i) {
-			if (parsedControllerData[i].startsWith("ZSYSTEM")) {
-				const line = parsedControllerData[i].split(" ").filter(Boolean);
-				return parseInt(line[1]);
-			}
-		}
-		throw new Error("Unable to locate number of robots");
+		errors.push("Unable to locate .ROBOTDATA");
+		return { data: data, errors: errors };
 	};
 
 	static getRobotIOCommentsObject = async (

@@ -2,6 +2,7 @@ export type ControllerObjectAlias = {
 	controllerType: string;
 	manufacturer: "Kawasaki";
 	robots: RobotObjectAlias[];
+	ncTable: MHObjectAlias[];
 	ioComments: IOCommentObjectAlias;
 	commonPrograms: ProgramObjectAlias[];
 	errors: string[];
@@ -16,14 +17,14 @@ export type RobotObjectAlias = {
 		| "Vision"
 		| "Mig"
 		| "Hem"
-		| "Locator";
+		| "Locator"
+		| "";
 	robotModel: string;
 	tools: ToolObjectAlias[];
 	installPosition: InstallPositionAlias;
 	vsf: VSFObjectAlias;
 	spot: SpotObjectAlias[];
 	rac: RacObjectAlias[];
-	mh: MHObjectAlias[];
 	programs: ProgramObjectAlias[];
 };
 

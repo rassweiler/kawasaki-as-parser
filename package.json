@@ -6,7 +6,8 @@
 	"scripts": {
 		"mocha": "mocha --require @babel/register",
 		"build": "babel src/index.ts --out-dir lib --extensions \".ts\"",
-		"test": "yarn build && yarn mocha",
+		"test": "yarn build && yarn lint && yarn mocha",
+		"test:github": "yarn mocha",
 		"preversion": "yarn test",
 		"version": "git add -A",
 		"postversion": "git push && git push --tags",
