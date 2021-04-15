@@ -1,6 +1,6 @@
 import fs from "fs";
 import { expect } from "chai";
-import KawasakiParser from "../index.js";
+import KawasakiParser from "../lib/index";
 import { data } from "./Samples/data.js";
 
 describe('The getRobotDataStringArray function', () =>{

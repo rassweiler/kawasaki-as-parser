@@ -8,17 +8,8 @@ export type ControllerObjectAlias = {
 	errors: string[];
 };
 
-export type RobotObjectAlias = {
-	robotType:
-		| "MH"
-		| "Spot"
-		| "NC"
-		| "Spot-MH"
-		| "Vision"
-		| "Mig"
-		| "Hem"
-		| "Locator"
-		| "";
+export interface RobotObjectAlias {
+	robotType: RobotTypeAlias;
 	robotModel: string;
 	tools: ToolObjectAlias[];
 	installPosition: InstallPositionAlias;
@@ -26,7 +17,18 @@ export type RobotObjectAlias = {
 	spot: SpotObjectAlias[];
 	rac: RacObjectAlias[];
 	programs: ProgramObjectAlias[];
-};
+}
+
+export type RobotTypeAlias =
+	| "Spot"
+	| "NC"
+	| "Spot-MH"
+	| "Vision"
+	| "Mig"
+	| "Hem"
+	| "Locator"
+	| ""
+	| "MH";
 
 export type ToolObjectAlias = {
 	tcp: {

@@ -3,16 +3,16 @@
 	"version": "2.0.0",
 	"description": "Kawasaki backup parser",
 	"main": "lib/index.js",
+	"types": "lib",
 	"scripts": {
-		"mocha": "mocha --require @babel/register",
-		"build": "babel src/index.ts --out-dir lib --extensions \".ts\"",
-		"test": "yarn build && yarn lint && yarn mocha",
-		"test:github": "yarn mocha",
-		"preversion": "yarn test",
-		"version": "git add -A",
-		"postversion": "git push && git push --tags",
+		"build": "npx tsc -p .",
 		"lint": "eslint . --cache --ext .js,.jsx,.ts,.tsx",
-		"lint:fix": "eslint . --fix --cache --ext .js,.jsx,.ts,.tsx"
+		"lint:fix": "eslint . --fix --cache --ext .js,.jsx,.ts,.tsx",
+		"test": "mocha --require @babel/register",
+		"lbt": "yarn lint && yarn build && yarn test",
+		"preversion": "yarn lbt",
+		"version": "git add -A",
+		"postversion": "git push && git push --tags"
 	},
 	"repository": {
 		"type": "git",
@@ -33,19 +33,9 @@
 	"files": [
 		"LICENSE",
 		"README.md",
-		"index.js",
 		"lib/"
 	],
 	"devDependencies": {
-		"@babel/cli": "^7.6.0",
-		"@babel/core": "^7.5.5",
-		"@babel/node": "^7.5.5",
-		"@babel/plugin-proposal-class-properties": "^7.5.5",
-		"@babel/plugin-transform-runtime": "^7.6.0",
-		"@babel/preset-env": "^7.5.5",
-		"@babel/preset-typescript": "^7.12.7",
-		"@babel/register": "^7.5.5",
-		"@babel/runtime": "^7.6.0",
 		"@typescript-eslint/eslint-plugin": "^4.21.0",
 		"@typescript-eslint/parser": "^4.21.0",
 		"chai": "*",

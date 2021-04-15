@@ -3,7 +3,8 @@ import {
 	IOCommentObjectAlias,
 	RobotObjectAlias,
 	MHObjectAlias,
-} from "./alias";
+	RobotTypeAlias,
+} from "./interfaces";
 
 export default class KawasakiParser {
 	/***********************************************************************
@@ -159,12 +160,16 @@ export default class KawasakiParser {
 				}
 			}
 		}
-		/*
+
 		// Parse controller IO comments
 		try {
-			controllerObject.ioComments = await KawasakiParser.getRobotIOCommentsObject(
+			const data = await KawasakiParser.getRobotIOCommentsObject(
 				parsedControllerData
 			);
+			data.errors.length > 0
+				? controllerObject.errors.concat(data.errors)
+				: null;
+			controllerObject.ioComments = data.data;
 		} catch (error) {
 			controllerObject.errors.push(error);
 		}
@@ -176,7 +181,6 @@ export default class KawasakiParser {
 		} catch (error) {
 			controllerObject.errors.push(error);
 		}
-		*/
 		return controllerObject;
 	};
 
@@ -242,19 +246,10 @@ export default class KawasakiParser {
 	static getRobotTypeFromInt = (
 		type: number
 	): {
-		data:
-			| "MH"
-			| "Spot"
-			| "NC"
-			| "Spot-MH"
-			| "Vision"
-			| "Mig"
-			| "Hem"
-			| "Locator"
-			| "";
+		data: RobotTypeAlias;
 		errors: string[];
 	} => {
-		let robotType = "";
+		let robotType: RobotTypeAlias = "";
 		const errors: string[] = [];
 		if (Number.isInteger(type)) {
 			switch (type) {
@@ -303,31 +298,13 @@ export default class KawasakiParser {
 		robotNumber: number
 	): Promise<{
 		data: {
-			robotType:
-				| "MH"
-				| "Spot"
-				| "NC"
-				| "Spot-MH"
-				| "Vision"
-				| "Mig"
-				| "Hem"
-				| "Locator"
-				| "";
+			robotType: RobotTypeAlias;
 			robotModel: string;
 		};
 		errors: string[];
 	}> => {
 		const data: {
-			robotType:
-				| "MH"
-				| "Spot"
-				| "NC"
-				| "Spot-MH"
-				| "Vision"
-				| "Mig"
-				| "Hem"
-				| "Locator"
-				| "";
+			robotType: RobotTypeAlias;
 			robotModel: string;
 		} = {
 			robotType: "",
@@ -358,13 +335,20 @@ export default class KawasakiParser {
 		return { data: data, errors: errors };
 	};
 
+	/***********************************************************************
+	 *	Parse controller IO comments
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file.
+	 *	Returns a promise, object of structure {data: {inputs: [], outputs: []}, errors: string[]}
+	 ************************************************************************/
 	static getRobotIOCommentsObject = async (
 		parsedControllerData: string[]
-	): Promise<IOCommentObjectAlias> => {
-		const comments = {
+	): Promise<{ data: IOCommentObjectAlias; errors: string[] }> => {
+		const comments: IOCommentObjectAlias = {
 			inputs: [],
 			outputs: [],
 		};
+		const errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === ".SIG_NAME_LANG2") {
 				++i;
@@ -378,7 +362,9 @@ export default class KawasakiParser {
 							parsedControllerData[i].lastIndexOf('"')
 						);
 						comment === '"' ? (comment = "") : null;
-						typeof signal === "number" ? (output.signal = signal) : null;
+						typeof signal === "number"
+							? (output.signal = signal)
+							: errors.push("Error: Signal not a number");
 						comments.outputs.push(output);
 					} else if (line[0].slice(0, 4) === "N_WX") {
 						const input = { signal: -1, comment: "" };
@@ -392,13 +378,12 @@ export default class KawasakiParser {
 					}
 					++i;
 				}
-				if (comments.inputs.length > 0) {
-				} else {
-					throw new Error(`Input or output arrays are empty`);
+				if (comments.inputs.length === 0) {
+					errors.push(`Input or output arrays are empty`);
 				}
 			}
 		}
-		return comments;
+		return { data: comments, errors: errors };
 	};
 
 	static getNCTableArray = async (parsedControllerData) => {
