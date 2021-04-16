@@ -2,13 +2,17 @@ export type ControllerObjectAlias = {
 	controllerType: string;
 	manufacturer: "Kawasaki";
 	robots: RobotObjectAlias[];
-	ncTable: MHObjectAlias[];
+	ncTable: MHTableObjectAlias[];
 	ioComments: IOCommentObjectAlias;
 	commonPrograms: ProgramObjectAlias[];
+	stringVars: StringVarObjectAlias[];
+	realVars: RealVarObjectAlias[];
+	jointVars: JointVarObjectAlias[];
+	transVars: TransVarObjectAlias[];
 	errors: string[];
 };
 
-export interface RobotObjectAlias {
+export type RobotObjectAlias = {
 	robotType: RobotTypeAlias;
 	robotModel: string;
 	tools: ToolObjectAlias[];
@@ -17,7 +21,7 @@ export interface RobotObjectAlias {
 	spot: SpotObjectAlias[];
 	rac: RacObjectAlias[];
 	programs: ProgramObjectAlias[];
-}
+};
 
 export type RobotTypeAlias =
 	| "Spot"
@@ -143,21 +147,16 @@ export type SpotObjectAlias = {
 	};
 };
 
-type StepupObjectAlias = {
+export type StepupObjectAlias = {
 	onePercentSetting: number;
 	onePercentValue: number;
 	twoPercentSetting: number;
 	twoPercentValue: number;
 };
 
-export type MHObjectAlias = {
+export type MHTableObjectAlias = {
 	tableIndex: number;
-	axis8: number;
-	axis9: number;
-	axis10: number;
-	axis11: number;
-	axis12: number;
-	axis13: number;
+	axisData: number[];
 	comment: string;
 };
 
@@ -189,24 +188,26 @@ export type ProgramObjectAlias = {
 	name: string;
 	comment: string;
 	arguments: string[];
-	lines:
-		| {
-				type: string;
-				comment: string;
-				function: number;
-				arguments: string[];
-				interpolations: string;
-				speed: number;
-				accuracy: number;
-				timer: number;
-				tool: number;
-				work: number;
-				group: number;
-				operation: string;
-				clamp: number;
-		  }[]
-		| { line: string; comment: string }[];
+	lines: ProgramLineObjectAlias[];
 };
+
+export type ProgramLineObjectAlias =
+	| {
+			type: string;
+			comment: string;
+			function: number;
+			arguments: string[];
+			interpolations: string;
+			speed: number;
+			accuracy: number;
+			timer: number;
+			tool: number;
+			work: number;
+			group: number;
+			operation: string;
+			clamp: number;
+	  }
+	| { line: string; comment: string };
 
 export type IOCommentObjectAlias = {
 	inputs: {
@@ -217,4 +218,24 @@ export type IOCommentObjectAlias = {
 		signal: number;
 		comment: string;
 	}[];
+};
+
+export type StringVarObjectAlias = {
+	name: string;
+	values: string[];
+};
+
+export type RealVarObjectAlias = {
+	name: string;
+	values: number[];
+};
+
+export type JointVarObjectAlias = {
+	name: string;
+	values: number[];
+};
+
+export type TransVarObjectAlias = {
+	name: string;
+	values: number[];
 };

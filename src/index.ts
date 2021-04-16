@@ -2,8 +2,10 @@ import {
 	ControllerObjectAlias,
 	IOCommentObjectAlias,
 	RobotObjectAlias,
-	MHObjectAlias,
+	MHTableObjectAlias,
 	RobotTypeAlias,
+	ToolObjectAlias,
+	InstallPositionAlias,
 } from "./interfaces";
 
 export default class KawasakiParser {
@@ -26,6 +28,10 @@ export default class KawasakiParser {
 			ncTable: [],
 			ioComments: { inputs: [], outputs: [] },
 			commonPrograms: [],
+			stringVars: [],
+			realVars: [],
+			jointVars: [],
+			transVars: [],
 			errors: [],
 		};
 
@@ -132,6 +138,10 @@ export default class KawasakiParser {
 					: null;
 				robot.robotType = robotInfo.data.robotType;
 				robot.robotModel = robotInfo.data.robotModel;
+				robotTCP.errors.length > 0
+					? controllerObject.errors.concat(robotTCP.errors)
+					: null;
+				robot.tools = robotTCP.data;
 				/*
 				const robottttttt = {
 					...results[0],
@@ -151,12 +161,15 @@ export default class KawasakiParser {
 			}
 			if (controllerObject.robots[0].robotType === "NC") {
 				try {
-					controllerObject.ncTable = await KawasakiParser.getNCTableArray(
+					const data = await KawasakiParser.getNCTableArray(
 						parsedControllerData
 					);
+					data.errors.length > 0
+						? controllerObject.errors.concat(data.errors)
+						: null;
+					controllerObject.ncTable = data.data;
 				} catch (error) {
-					controllerObject.ncTable = [];
-					console.log("KAP NC Table Error:", error);
+					controllerObject.errors.push(error);
 				}
 			}
 		}
@@ -386,37 +399,72 @@ export default class KawasakiParser {
 		return { data: comments, errors: errors };
 	};
 
-	static getNCTableArray = async (parsedControllerData) => {
+	/***********************************************************************
+	 *	Parse controller NC table data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file.
+	 *	Returns a promise, object of structure:
+	 * {data: [{tableIndex: number, axisData: number[], comment: string}], errors: string[]}
+	 ************************************************************************/
+	static getNCTableArray = async (
+		parsedControllerData: string[]
+	): Promise<{ data: MHTableObjectAlias[]; errors: string[] }> => {
+		const data: MHTableObjectAlias[] = [];
+		const errors = [];
 		const ncs = 64;
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith("MAT_TBL[1]")) {
-				let mh = [];
 				const start = i;
 				const end = start + ncs * 2;
+				let index = 1;
 				for (let startIndex = start; startIndex < end; ++startIndex) {
-					const nc = { joints: [], comment: "" };
+					const mh: MHTableObjectAlias = {
+						tableIndex: index,
+						axisData: [],
+						comment: "",
+					};
 					const line = parsedControllerData[startIndex]
 						.split(" ")
 						.filter(Boolean);
 					line.shift();
 					for (let j = 0; j < 5; ++j) {
-						nc.joints = [...nc.joints, parseFloat(line[j])];
+						const val = parseFloat(line[j]);
+						typeof val === "number"
+							? mh.axisData.push(val)
+							: errors.push("Error: NC axis value not type number");
 					}
+					mh.axisData.length === 0
+						? errors.push(
+								`Error: Axis table array is empty: Index ${index}`
+						  )
+						: null;
 					startIndex++;
-					nc.comment = parsedControllerData[startIndex].split(/ (.+)/)[1];
-					mh = [...mh, nc];
+					mh.comment = parsedControllerData[startIndex].split(/ (.+)/)[1];
+					data.push(mh);
+					++index;
 				}
-				if (mh.length > 0) {
-					return mh;
-				} else {
-					throw new Error("MH NC array is empty");
+				if (data.length === 0) {
+					errors.push("Error: NC table array is empty");
 				}
+				return { data: data, errors: errors };
 			}
 		}
-		throw new Error("Unable to locate robot numbers");
+		errors.push("Error: Unable to locate NC Table Data");
+		return { data: data, errors: errors };
 	};
 
-	static getRobotTCPCOGArray = async (parsedControllerData, robotNumber) => {
+	/***********************************************************************
+	 *	Parse robot TCP and COG Information
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure {data: [{tcp: {}, cog: {}}], errors: string[]}
+	 ************************************************************************/
+	static getRobotTCPCOGArray = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: ToolObjectAlias[]; errors: string[] }> => {
+		const data: ToolObjectAlias[] = [];
+		const errors = [];
 		const target = `.AUXDATA${robotNumber > 1 ? robotNumber : ""}`;
 		const maxTools = 9;
 		for (let i = 0; i < parsedControllerData.length; ++i) {
@@ -425,9 +473,11 @@ export default class KawasakiParser {
 					if (parsedControllerData[i].startsWith("TOOL1")) {
 						const start = i;
 						const end = start + maxTools * 2;
-						let tools = [];
 						for (let t = start; t < end; ++t) {
-							const tool = { tcp: {}, cog: {} };
+							const tool: ToolObjectAlias = {
+								tcp: { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 },
+								cog: { weight: 0, x: 0, y: 0, z: 0 },
+							};
 							let line = parsedControllerData[t]
 								.split(" ")
 								.filter(Boolean);
@@ -445,25 +495,42 @@ export default class KawasakiParser {
 							tool.cog.x = parseFloat(line[1]);
 							tool.cog.y = parseFloat(line[2]);
 							tool.cog.z = parseFloat(line[3]);
-							tools = [...tools, tool];
+							data.push(tool);
 						}
-						if (tools.length > 1) {
-							return tools;
-						} else {
-							throw new Error(`Tool array is empty ${tools}`);
+						if (data.length === 0) {
+							errors.push("Error: Tool array is empty");
 						}
+						return { data: data, errors: errors };
 					}
 					++i;
 				}
+				errors.push("Error: unable to find tool information");
 			}
 		}
-		throw new Error(`Unable to locate robot tool information in ${target}`);
+		errors.push(`Error: unable to find robot tool section for ${target}`);
+		return { data: data, errors: errors };
 	};
 
+	/***********************************************************************
+	 *	Parse robot installation data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: {x: number, y: number, z: number, rx: number, ry: number, rz: number}, errors: string[]}
+	 ************************************************************************/
 	static getRobotInstallPositionObject = async (
-		parsedControllerData,
-		robot
-	) => {
+		parsedControllerData: string[],
+		robot: number
+	): Promise<{ data: InstallPositionAlias; errors: string[] }> => {
+		const data: InstallPositionAlias = {
+			x: 0,
+			y: 0,
+			z: 0,
+			rx: 0,
+			ry: 0,
+			rz: 0,
+		};
+		const errors: string[] = [];
 		const target = `.VSFDATA${robot}`;
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === target) {
@@ -473,24 +540,27 @@ export default class KawasakiParser {
 							.split(" ")
 							.filter(Boolean);
 						if (line.length < 7) {
-							throw new Error("Data retrieved is missing values");
+							errors.push(
+								`Error: Install Data retrieved is missing values: Robot ${robot}`
+							);
+							return { data: data, errors: errors };
 						}
-						const install = {};
-						install.x = parseFloat(line[1]);
-						install.y = parseFloat(line[2]);
-						install.z = parseFloat(line[3]);
-						install.rx = parseFloat(line[4]);
-						install.ry = parseFloat(line[5]);
-						install.rz = parseFloat(line[6]);
-						return install;
+						data.x = parseFloat(line[1]);
+						data.y = parseFloat(line[2]);
+						data.z = parseFloat(line[3]);
+						data.rx = parseFloat(line[4]);
+						data.ry = parseFloat(line[5]);
+						data.rz = parseFloat(line[6]);
+						return { data: data, errors: errors };
 					}
 					++i;
 				}
 			}
 		}
-		throw new Error(
-			`Unable to locate robot install information in ${target}`
+		errors.push(
+			`Error: Unable to locate robot install information in ${target}`
 		);
+		return { data: data, errors: errors };
 	};
 
 	static getRobotJointLimitArray = async (
