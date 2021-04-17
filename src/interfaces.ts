@@ -68,28 +68,9 @@ export type SoftLimitObjectAlias = {
 };
 
 export type VSFObjectAlias = {
-	area: {
-		enabled: boolean;
-		upper: number;
-		lower: number;
-		lines: LineObjectAlias[];
-	};
-	parts: {
-		enabled: boolean;
-		upper: number;
-		lower: number;
-		lines: LineObjectAlias[];
-	}[];
-	linkData: {
-		radius: number;
-		joint: number;
-		x1: number;
-		y1: number;
-		z1: number;
-		x2: number;
-		y2: number;
-		z2: number;
-	}[];
+	area: VSFZoneObjectAlias;
+	parts: VSFZoneObjectAlias[];
+	linkData: LinkObjectAlias[];
 	toolSpheres: {
 		spheres: {
 			x: number;
@@ -121,6 +102,24 @@ export type LineObjectAlias = {
 	y1: number;
 	x2: number;
 	y2: number;
+};
+
+export type VSFZoneObjectAlias = {
+	enabled: boolean;
+	upper: number;
+	lower: number;
+	lines: LineObjectAlias[];
+};
+
+export type LinkObjectAlias = {
+	radius: number;
+	joint: number;
+	x1: number;
+	y1: number;
+	z1: number;
+	x2: number;
+	y2: number;
+	z2: number;
 };
 
 export type SpotObjectAlias = {

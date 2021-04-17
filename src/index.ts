@@ -6,6 +6,10 @@ import {
 	RobotTypeAlias,
 	ToolObjectAlias,
 	InstallPositionAlias,
+	SoftLimitObjectAlias,
+	LinkObjectAlias,
+	VSFZoneObjectAlias,
+	LineObjectAlias,
 } from "./interfaces";
 
 export default class KawasakiParser {
@@ -82,12 +86,12 @@ export default class KawasakiParser {
 						parsedControllerData,
 						index
 					),
-					KawasakiParser.getRobotJointLimitArray(
+					KawasakiParser.getRobotJointSoftLimitArray(
 						parsedControllerData,
 						index
 					),
 					KawasakiParser.getRobotVSFLinkArray(parsedControllerData, index),
-					KawasakiParser.getRobotVSFAreaObject(
+					KawasakiParser.getRobotVSFAreaPartsObject(
 						parsedControllerData,
 						index
 					),
@@ -563,13 +567,21 @@ export default class KawasakiParser {
 		return { data: data, errors: errors };
 	};
 
-	static getRobotJointLimitArray = async (
-		parsedControllerData,
-		robotNumber
-	) => {
+	/***********************************************************************
+	 *	Parse robot joint limit data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: [{max: number, min: number, upper: number, lower: number}], errors: string[]}
+	 ************************************************************************/
+	static getRobotJointSoftLimitArray = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: SoftLimitObjectAlias[]; errors: string[] }> => {
+		const data: SoftLimitObjectAlias[] = [];
+		const errors: string[] = [];
 		const target1 = `.AUXDATA${robotNumber > 1 ? robotNumber : ""}`;
 		const target2 = `.ROBOTDATA${robotNumber}`;
-		let limits = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target2)) {
 				while (parsedControllerData[i] != ".END") {
@@ -585,10 +597,17 @@ export default class KawasakiParser {
 						min.shift();
 						min.pop();
 						for (let index = 0; index < max.length; ++index) {
-							const limit = {};
-							limit.max = parseFloat(max[index]);
-							limit.min = parseFloat(min[index]);
-							limits = [...limits, limit];
+							const val: SoftLimitObjectAlias = {
+								max: 0,
+								min: 0,
+								upper: 0,
+								lower: 0,
+							};
+							const ma = parseFloat(max[index]);
+							const mi = parseFloat(min[index]);
+							typeof ma === "number" ? (val.max = ma) : null;
+							typeof mi === "number" ? (val.min = mi) : null;
+							data.push(val);
 						}
 					}
 					++i;
@@ -606,30 +625,62 @@ export default class KawasakiParser {
 							.filter(Boolean);
 						lower.shift();
 						for (let index = 0; index < upper.length; ++index) {
-							limits[index].upper = parseFloat(upper[index]);
-							limits[index].lower = parseFloat(lower[index]);
+							const lo = parseFloat(lower[index]);
+							const up = parseFloat(upper[index]);
+							if (index <= data.length) {
+								typeof lo === "number"
+									? (data[index].lower = lo)
+									: null;
+								typeof up === "number"
+									? (data[index].upper = up)
+									: null;
+							} else {
+								errors.push(
+									`Error: Upper/Lower array larger than min/max array: Index ${index}`
+								);
+							}
 						}
-						return limits;
 					}
 					++i;
 				}
 			}
 		}
-		throw new Error(
+		errors.push(
 			`Unable to locate robot limit information in ${target1} or ${target2}`
 		);
+		return { data: data, errors: errors };
 	};
 
-	static getRobotVSFLinkArray = async (parsedControllerData, robotNumber) => {
+	/***********************************************************************
+	 *	Parse robot link data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: [{max: number, min: number, upper: number, lower: number}], errors: string[]}
+	 ************************************************************************/
+	static getRobotVSFLinkArray = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: LinkObjectAlias[]; errors: string[] }> => {
 		const target = `.VSFDATA${robotNumber}`;
 		const params = 8;
+		const data: LinkObjectAlias[] = [];
+		const errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_ARMPARAM2")) {
-						let links = [];
 						for (let index = 0; index < params; ++index) {
-							const link = {};
+							const link: LinkObjectAlias = {
+								radius: 0,
+								joint: 0,
+								x1: 0,
+								y1: 0,
+								z1: 0,
+								x2: 0,
+								y2: 0,
+								z2: 0,
+							};
 							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
@@ -641,20 +692,42 @@ export default class KawasakiParser {
 							link.x2 = parseFloat(line[6]) / 10;
 							link.y2 = parseFloat(line[7]) / 10;
 							link.z2 = parseFloat(line[8]) / 10;
-							links = [...links, link];
+							data.push(link);
 						}
-						return links;
 					}
 					++i;
 				}
+				errors.push(`Error: Unable to locate VSF_ARMPARAM2`);
+				return { data: data, errors: errors };
 			}
 		}
-		throw new Error(`Unable to locate robot link information in ${target}`);
+		errors.push(
+			`Error: Unable to locate robot link information in ${target}`
+		);
+		return { data: data, errors: errors };
 	};
 
-	static getRobotVSFAreaObject = async (parsedControllerData, robotNumber) => {
+	/***********************************************************************
+	 *	Parse robot vsf area and part range data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: {area:VSFZoneObjectAlias, parts: VSFZoneObjectAlias[]}, errors: string[]}
+	 ************************************************************************/
+	static getRobotVSFAreaPartsObject = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{
+		data: { area: VSFZoneObjectAlias; parts: VSFZoneObjectAlias[] };
+		errors: string[];
+	}> => {
+		const data: { area: VSFZoneObjectAlias; parts: VSFZoneObjectAlias[] } = {
+			area: { enabled: false, upper: 0, lower: 0, lines: [] },
+			parts: [],
+		};
+		const errors: string[] = [];
 		if (robotNumber > 1) {
-			return {};
+			return { data: data, errors: errors };
 		}
 		const target = `.VSFDATA${robotNumber}`;
 		const areas = 9;
@@ -662,53 +735,68 @@ export default class KawasakiParser {
 			if (parsedControllerData[i].startsWith(target)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_AREA1")) {
-						const vsf = {};
 						const line = parsedControllerData[i]
 							.split(" ")
 							.filter(Boolean);
-						const area = {};
-						area.enabled = parseInt(line[1]);
-						area.upper = parseFloat(line[34]) / 100;
-						area.lower = parseFloat(line[35]) / 100;
-						area.lines = [];
+						data.area.enabled = parseInt(line[1]) === 1 ? true : false;
+						data.area.upper = parseFloat(line[34]) / 100;
+						data.area.lower = parseFloat(line[35]) / 100;
 						for (let l = 0; l < 8; ++l) {
-							const al = {};
+							const al: LineObjectAlias = { x1: 0, y1: 0, x2: 0, y2: 0 };
 							al.x1 = parseFloat(line[4 * l + 2]) / 100;
 							al.y1 = parseFloat(line[4 * l + 3]) / 100;
 							al.x2 = parseFloat(line[4 * l + 4]) / 100;
 							al.y2 = parseFloat(line[4 * l + 5]) / 100;
-							area.lines = [...area.lines, al];
+							data.area.lines.push(al);
 						}
-						vsf.area = area;
-						vsf.parts = [];
+						//Parse part ranges
 						for (let index = 1; index < areas; ++index) {
-							const part = {};
+							const part: VSFZoneObjectAlias = {
+								enabled: false,
+								upper: 0,
+								lower: 0,
+								lines: [],
+							};
 							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
-							part.enabled = parseInt(line[1]);
+							part.enabled = parseInt(line[1]) === 1 ? true : false;
 							part.upper = parseFloat(line[18]) / 100;
 							part.lower = parseFloat(line[19]) / 100;
-							part.lines = [];
 							for (let l = 0; l < 4; ++l) {
-								const al = {};
+								const al: LineObjectAlias = {
+									x1: 0,
+									y1: 0,
+									x2: 0,
+									y2: 0,
+								};
 								al.x1 = parseFloat(line[4 * l + 2]) / 100;
 								al.y1 = parseFloat(line[4 * l + 3]) / 100;
 								al.x2 = parseFloat(line[4 * l + 4]) / 100;
 								al.y2 = parseFloat(line[4 * l + 5]) / 100;
-								part.lines = [...part.lines, al];
+								part.lines.push(al);
 							}
-							vsf.parts = [...vsf.parts, part];
+							data.parts.push(part);
 						}
-						return vsf;
+						return { data: data, errors: errors };
 					}
 					++i;
 				}
+				errors.push(`Error: Unable to locate VSF_AREA1 in ${target}`);
+				return { data: data, errors: errors };
 			}
 		}
-		throw new Error(`Unable to locate vsf area information in ${target}`);
+		errors.push(`Error: Unable to locate vsf area information in ${target}`);
+		return { data: data, errors: errors };
 	};
 
+	/***********************************************************************
+	 *	Parse robot vsf tool spheres data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: {area:VSFZoneObjectAlias, parts: VSFZoneObjectAlias[]}, errors: string[]}
+	 ************************************************************************/
 	static getRobotVSFToolSphereArray = async (
 		parsedControllerData,
 		robotNumber
