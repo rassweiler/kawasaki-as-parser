@@ -71,30 +71,32 @@ export type VSFObjectAlias = {
 	area: VSFZoneObjectAlias;
 	parts: VSFZoneObjectAlias[];
 	linkData: LinkObjectAlias[];
-	toolSpheres: {
-		spheres: {
-			x: number;
-			y: number;
-			z: number;
-			radius: number;
-		}[];
-	}[];
-	toolBoxes: {
-		rotation: number;
-		x: number;
-		y: number;
-		z: number;
-		depth: number;
-		width: number;
-		height: number;
-		spheres: {
-			radius: number;
-			x: number;
-			y: number;
-			z: number;
-		}[];
-	}[];
+	toolSpheres: ToolSphereObjectAlias[];
+	toolBoxes: ToolBoxObjectAlias[];
 	softLimits: SoftLimitObjectAlias[];
+};
+
+export type ToolSphereObjectAlias = {
+	index: number;
+	spheres: SphereObjectAlias[];
+};
+
+export type ToolBoxObjectAlias = {
+	rotation: number;
+	x: number;
+	y: number;
+	z: number;
+	depth: number;
+	width: number;
+	height: number;
+	spheres: SphereObjectAlias[];
+};
+
+export type SphereObjectAlias = {
+	x: number;
+	y: number;
+	z: number;
+	radius: number;
 };
 
 export type LineObjectAlias = {
@@ -192,11 +194,11 @@ export type ProgramObjectAlias = {
 
 export type ProgramLineObjectAlias =
 	| {
-			type: string;
+			type: "comment" | "block" | "as" | "function";
 			comment: string;
 			function: number;
 			arguments: string[];
-			interpolations: string;
+			interpolation: string;
 			speed: number;
 			accuracy: number;
 			timer: number;
@@ -206,7 +208,11 @@ export type ProgramLineObjectAlias =
 			operation: string;
 			clamp: number;
 	  }
-	| { line: string; comment: string };
+	| {
+			type: "comment" | "block" | "as" | "function";
+			line: string;
+			comment: string;
+	  };
 
 export type IOCommentObjectAlias = {
 	inputs: {

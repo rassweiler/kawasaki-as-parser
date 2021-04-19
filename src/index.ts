@@ -10,6 +10,11 @@ import {
 	LinkObjectAlias,
 	VSFZoneObjectAlias,
 	LineObjectAlias,
+	ToolSphereObjectAlias,
+	SphereObjectAlias,
+	ToolBoxObjectAlias,
+	ProgramObjectAlias,
+	ProgramLineObjectAlias,
 } from "./interfaces";
 
 export default class KawasakiParser {
@@ -48,6 +53,7 @@ export default class KawasakiParser {
 			controllerObject.errors.concat(data.errors);
 		} catch (error) {
 			controllerObject.errors.push(error);
+			return controllerObject;
 		}
 
 		// Determine number of robots in controller
@@ -61,6 +67,7 @@ export default class KawasakiParser {
 				: null;
 		} catch (error) {
 			controllerObject.errors.push(error);
+			return controllerObject;
 		}
 
 		// Parse robot specific data
@@ -146,6 +153,39 @@ export default class KawasakiParser {
 					? controllerObject.errors.concat(robotTCP.errors)
 					: null;
 				robot.tools = robotTCP.data;
+				robotInstall.errors.length > 0
+					? controllerObject.errors.concat(robotInstall.errors)
+					: null;
+				robot.installPosition = robotInstall.data;
+				robotJoint.errors.length > 0
+					? controllerObject.errors.concat(robotJoint.errors)
+					: null;
+				robot.vsf.softLimits = robotJoint.data;
+				robotLink.errors.length > 0
+					? controllerObject.errors.concat(robotLink.errors)
+					: null;
+				robot.vsf.linkData = robotLink.data;
+				robotLink.errors.length > 0
+					? controllerObject.errors.concat(robotLink.errors)
+					: null;
+				robot.vsf.linkData = robotLink.data;
+				robotArea.errors.length > 0
+					? controllerObject.errors.concat(robotArea.errors)
+					: null;
+				robot.vsf.area = robotArea.data.area;
+				robot.vsf.parts = robotArea.data.parts;
+				robotSphere.errors.length > 0
+					? controllerObject.errors.concat(robotSphere.errors)
+					: null;
+				robot.vsf.toolSpheres = robotSphere.data;
+				robotBox.errors.length > 0
+					? controllerObject.errors.concat(robotBox.errors)
+					: null;
+				robot.vsf.toolBoxes = robotBox.data;
+				robotPrograms.errors.length > 0
+					? controllerObject.errors.concat(robotPrograms.errors)
+					: null;
+				robot.programs = robotPrograms.data;
 				/*
 				const robottttttt = {
 					...results[0],
@@ -192,9 +232,13 @@ export default class KawasakiParser {
 		}
 
 		try {
-			controllerObject.commonPrograms = await KawasakiParser.getControllerProgramsArray(
+			const data = await KawasakiParser.getControllerProgramsArray(
 				parsedControllerData
 			);
+			data.errors.length > 0
+				? controllerObject.errors.concat(data.errors)
+				: null;
+			controllerObject.commonPrograms = data.data;
 		} catch (error) {
 			controllerObject.errors.push(error);
 		}
@@ -795,19 +839,20 @@ export default class KawasakiParser {
 	 *
 	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
 	 *	Returns a promise, object of structure:
-	 * {data: {area:VSFZoneObjectAlias, parts: VSFZoneObjectAlias[]}, errors: string[]}
+	 * { data: ToolSphereObjectAlias[]; errors: string[] }
 	 ************************************************************************/
 	static getRobotVSFToolSphereArray = async (
-		parsedControllerData,
-		robotNumber
-	) => {
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: ToolSphereObjectAlias[]; errors: string[] }> => {
 		const target = `.VSFDATA${robotNumber}`;
 		const toolnum = 9;
+		const data: ToolSphereObjectAlias[] = [];
+		const errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_TOOLSP10")) {
-						let tools = [];
 						for (let index = 0; index < toolnum; ++index) {
 							const line = parsedControllerData[i + index * 2]
 								.split(" ")
@@ -815,12 +860,25 @@ export default class KawasakiParser {
 							const line2 = parsedControllerData[i + index * 2]
 								.split(" ")
 								.filter(Boolean);
-							const tool = {};
-							let page1 = [];
-							let page2 = [];
+							const tool: ToolSphereObjectAlias = {
+								index: index,
+								spheres: [],
+							};
+							let page1: SphereObjectAlias[] = [];
+							let page2: SphereObjectAlias[] = [];
 							for (let s = 0; s < 10; ++s) {
-								const s1 = {};
-								const s2 = {};
+								const s1: SphereObjectAlias = {
+									x: 0,
+									y: 0,
+									z: 0,
+									radius: 0,
+								};
+								const s2: SphereObjectAlias = {
+									x: 0,
+									y: 0,
+									z: 0,
+									radius: 0,
+								};
 								s1.x = parseFloat(line[4 * s + 1]) / 10;
 								s1.y = parseFloat(line[4 * s + 2]) / 10;
 								s1.z = parseFloat(line[4 * s + 3]) / 10;
@@ -832,36 +890,58 @@ export default class KawasakiParser {
 								page1 = [...page1, s1];
 								page2 = [...page2, s2];
 							}
-							tool.spheres = [...page1, ...page2];
-							tools = [...tools, tool];
+							tool.spheres.concat(page1, page2);
+							data.push(tool);
 						}
-						return tools;
+						return { data: data, errors: errors };
 					}
 					++i;
 				}
+				errors.push(
+					`Error: Unable to locate vsf tool spheres section VSF_TOOLSP10`
+				);
+				return { data: data, errors: errors };
 			}
 		}
-		throw new Error(
-			`Unable to locate vsf tool sphere information in ${target}`
+		errors.push(
+			`Error: Unable to locate vsf tool sphere information in ${target}`
 		);
+		return { data: data, errors: errors };
 	};
 
+	/***********************************************************************
+	 *	Parse robot vsf tool box data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: {area:VSFZoneObjectAlias, parts: VSFZoneObjectAlias[]}, errors: string[]}
+	 ************************************************************************/
 	static getRobotVSFToolBoxArray = async (
-		parsedControllerData,
-		robotNumber
-	) => {
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: ToolBoxObjectAlias[]; errors: string[] }> => {
 		const target = `.VSFDATA${robotNumber}`;
 		const toolnum = 9;
+		const data: ToolBoxObjectAlias[] = [];
+		const errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
-				let tools = [];
 				while (parsedControllerData[i] != ".END") {
 					if (parsedControllerData[i].startsWith("VSF_TOOLBOX1 ")) {
 						for (let index = 0; index < toolnum; ++index) {
 							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
-							const tool = {};
+							const tool: ToolBoxObjectAlias = {
+								rotation: 0,
+								x: 0,
+								y: 0,
+								z: 0,
+								depth: 0,
+								width: 0,
+								height: 0,
+								spheres: [],
+							};
 							tool.rotation = parseFloat(line[1]) / 100;
 							tool.x = parseFloat(line[2]) / 100;
 							tool.y = parseFloat(line[3]) / 100;
@@ -869,7 +949,7 @@ export default class KawasakiParser {
 							tool.depth = parseFloat(line[5]) / 100;
 							tool.width = parseFloat(line[6]) / 100;
 							tool.height = parseFloat(line[7]) / 100;
-							tools = [...tools, tool];
+							data.push(tool);
 						}
 					}
 					if (parsedControllerData[i].startsWith("VSF_ETCSP1 ")) {
@@ -877,9 +957,18 @@ export default class KawasakiParser {
 							const line = parsedControllerData[i + index]
 								.split(" ")
 								.filter(Boolean);
-							tools[index].spheres = [];
-							const s1 = {};
-							const s2 = {};
+							const s1: SphereObjectAlias = {
+								radius: 0,
+								x: 0,
+								y: 0,
+								z: 0,
+							};
+							const s2: SphereObjectAlias = {
+								radius: 0,
+								x: 0,
+								y: 0,
+								z: 0,
+							};
 							s1.radius = parseFloat(line[1]) / 10;
 							s1.x = parseFloat(line[2]) / 10;
 							s1.y = parseFloat(line[3]) / 10;
@@ -888,25 +977,46 @@ export default class KawasakiParser {
 							s2.x = parseFloat(line[6]) / 10;
 							s2.y = parseFloat(line[7]) / 10;
 							s2.z = parseFloat(line[8]) / 10;
-							tools[index].spheres = [...tools[index].spheres, s1, s2];
+							data[index].spheres.concat(s1, s2);
 						}
-						return tools;
+						return { data: data, errors: errors };
 					}
 					++i;
 				}
+				errors.push(
+					`Error: Unable to locate VSF_TOOLBOX1 information in ${target}`
+				);
+				return { data: data, errors: errors };
 			}
 		}
-		throw new Error(
-			`Unable to locate vsf tool sphere information in ${target}`
+		errors.push(
+			`Error: Unable to locate vsf tool box information in ${target}`
 		);
+		return { data: data, errors: errors };
 	};
 
-	static getRobotProgramsArray = async (parsedControllerData, robotNumber) => {
+	/***********************************************************************
+	 *	Parse robot program data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: ProgramObjectAlias[], errors: string[]}
+	 ************************************************************************/
+	static getRobotProgramsArray = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: ProgramObjectAlias[]; errors: string[] }> => {
 		const target = `.PROGRAM r${robotNumber}`;
-		let programs = [];
+		const data: ProgramObjectAlias[] = [];
+		const errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
-				const program = { name: "", arguments: [], lines: [], comment: "" };
+				const program: ProgramObjectAlias = {
+					name: "",
+					arguments: [],
+					lines: [],
+					comment: "",
+				};
 				program.comment = parsedControllerData[i].split(";")[1];
 				const argument = parsedControllerData[i].match(/\((.*?)\)/);
 				if (argument) {
@@ -914,121 +1024,266 @@ export default class KawasakiParser {
 				}
 				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
 				while (parsedControllerData[i] != ".END") {
-					let parsed = parsedControllerData[i];
-					const line = { type: "", comment: "" };
+					const parsed = parsedControllerData[i];
 					if (parsed.startsWith(";")) {
-						line.type = "comment";
+						const line: ProgramLineObjectAlias = {
+							type: "comment",
+							line: "",
+							comment: "",
+						};
 						line.comment = parsed.substr(1);
-					} else {
+						program.lines.push(line);
+					} else if (parsed.startsWith("FN")) {
+						const line: ProgramLineObjectAlias = {
+							type: "function",
+							comment: "",
+							function: 0,
+							arguments: [],
+							interpolation: "",
+							speed: 0,
+							accuracy: 0,
+							timer: 0,
+							tool: 0,
+							work: 0,
+							group: 0,
+							operation: "",
+							clamp: 0,
+						};
 						const comment = parsed.split(";");
 						comment.length > 1 ? (line.comment = comment[1]) : null;
-						if (parsed.startsWith("FN")) {
-							const func = parsed.split("[")[0];
-							line.function = parseInt(func.slice(2));
-							let args = parsed.split("[")[1];
-							args = args.substring(0, args.length - 1);
-							line.arguments = args.split(",").filter(Boolean);
-						} else if (
-							parsed.startsWith("JOINT") ||
-							parsed.startsWith("LINEAR")
-						) {
-							parsed = parsed.split(" ").filter(Boolean);
-							parsed[parsed.length - 1].startsWith(";")
-								? parsed.pop()
-								: (parsed[parsed.length - 1] = parsed[
-										parsed.length - 1
-								  ].split(";")[0]);
-							line.interpolation = parsed[0];
-							if (parsed[1].startsWith("SPEED")) {
-								line.speed = parseInt(
-									parsed[1].slice(parsed[1].length - 2)
-								);
-							} else {
-								line.speed = parseInt(
-									parsed[1].substring(0, parsed[1].length)
-								);
-							}
-							line.accuracy = parseInt(
-								parsed[2].slice(parsed[2].length - 2)
+						const func = parsed.split("[")[0];
+						line.function = parseInt(func.slice(2));
+						let args = parsed.split("[")[1];
+						args = args.substring(0, args.length - 1);
+						line.arguments = args.split(",").filter(Boolean);
+						program.lines.push(line);
+					} else if (
+						parsed.startsWith("JOINT") ||
+						parsed.startsWith("LINEAR")
+					) {
+						const line: ProgramLineObjectAlias = {
+							type: "block",
+							comment: "",
+							function: 0,
+							arguments: [],
+							interpolation: "",
+							speed: 0,
+							accuracy: 0,
+							timer: 0,
+							tool: 0,
+							work: 0,
+							group: 0,
+							operation: "",
+							clamp: 0,
+						};
+						const comment = parsed.split(";");
+						comment.length > 1 ? (line.comment = comment[1]) : null;
+						const parsed2 = parsed.split(" ").filter(Boolean);
+						/*
+						parsed2[parsed2.length - 1].startsWith(";")
+							? parsed2.pop()
+							: (parsed2[parsed2.length - 1] = parsed2[
+									parsed2.length - 1
+							  ].split(";")[0]);
+						*/
+						line.interpolation = parsed2[0];
+						if (parsed2[1].startsWith("SPEED")) {
+							line.speed = parseInt(
+								parsed2[1].slice(parsed2[1].length - 2)
 							);
-							line.timer = parseInt(
-								parsed[3].slice(parsed[3].length - 2)
-							);
-							line.tool = parseInt(
-								parsed[4].slice(parsed[4].length - 2)
-							);
-							line.work = parseInt(
-								parsed[5].slice(parsed[5].length - 2)
-							);
-							line.group = parseInt(
-								parsed[6].slice(parsed[6].length - 2)
-							);
-							let index = 0;
-							if (parsed[7] === "END" || parsed[7] === "JUMP") {
-								line.operation = parsed[7];
-								++index;
-							}
-							line.clamp = parseInt(
-								parsed[7 + index].slice(parsed[7 + index].length - 2)
+						} else {
+							line.speed = parseInt(
+								parsed2[1].substring(0, parsed2[1].length)
 							);
 						}
+						line.accuracy = parseInt(
+							parsed2[2].slice(parsed2[2].length - 2)
+						);
+						line.timer = parseInt(
+							parsed2[3].slice(parsed2[3].length - 2)
+						);
+						line.tool = parseInt(parsed2[4].slice(parsed2[4].length - 2));
+						line.work = parseInt(parsed2[5].slice(parsed2[5].length - 2));
+						line.group = parseInt(
+							parsed2[6].slice(parsed2[6].length - 2)
+						);
+						let index = 0;
+						if (parsed2[7] === "END" || parsed2[7] === "JUMP") {
+							line.operation = parsed2[7];
+							++index;
+						}
+						line.clamp = parseInt(
+							parsed2[7 + index].slice(parsed2[7 + index].length - 2)
+						);
+						program.lines.push(line);
+					} else {
+						const line: ProgramLineObjectAlias = {
+							type: "as",
+							line: "",
+							comment: "",
+						};
+						const comment = parsed.split(";");
+						comment.length > 1 ? (line.comment = comment[1]) : null;
+						line.line = comment[0];
+						program.lines.push(line);
 					}
-					program.lines = [...program.lines, line];
 					++i;
 				}
-				programs = [...programs, program];
+				data.push(program);
 			}
 		}
-		if (programs.length > 0) {
-			return programs;
+		if (data.length === 0) {
+			errors.push(
+				`Error: Unable to locate program information in ${target}`
+			);
 		}
-		throw new Error(
-			`Unable to locate program information information in ${target}`
-		);
+		return { data: data, errors: errors };
 	};
 
-	static getControllerProgramsArray = async (parsedControllerData) => {
+	/***********************************************************************
+	 *	Parse controller program data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file.
+	 *	Returns a promise, object of structure:
+	 * {data: ProgramObjectAlias[], errors: string[]}
+	 ************************************************************************/
+	static getControllerProgramsArray = async (
+		parsedControllerData: string[]
+	): Promise<{ data: ProgramObjectAlias[]; errors: string[] }> => {
 		const target = `.PROGRAM`;
-		let programs = [];
+		const data: ProgramObjectAlias[] = [];
+		const errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (
 				parsedControllerData[i].startsWith(target) &&
 				!parsedControllerData[i].includes("_pg")
 			) {
-				const program = { name: "", arguments: [], lines: [], comment: "" };
+				const program: ProgramObjectAlias = {
+					name: "",
+					arguments: [],
+					lines: [],
+					comment: "",
+				};
 				program.comment = parsedControllerData[i].split(";")[1];
 				const argument = parsedControllerData[i].match(/\((.*?)\)/);
 				if (argument) {
 					program.arguments = argument[1].split(",");
 				}
 				program.name = parsedControllerData[i].split(" ")[1].split("(")[0];
-				++i;
 				while (parsedControllerData[i] != ".END") {
 					const parsed = parsedControllerData[i];
-					const line = { type: "", comment: "" };
 					if (parsed.startsWith(";")) {
-						line.type = "comment";
+						const line: ProgramLineObjectAlias = {
+							type: "comment",
+							line: "",
+							comment: "",
+						};
 						line.comment = parsed.substr(1);
-					} else if (parsed.includes(";")) {
-						line.type = "as";
-						const l = parsed.split(";");
-						line.comment = l[1];
-						line.command = l[0];
+						program.lines.push(line);
+					} else if (parsed.startsWith("FN")) {
+						const line: ProgramLineObjectAlias = {
+							type: "function",
+							comment: "",
+							function: 0,
+							arguments: [],
+							interpolation: "",
+							speed: 0,
+							accuracy: 0,
+							timer: 0,
+							tool: 0,
+							work: 0,
+							group: 0,
+							operation: "",
+							clamp: 0,
+						};
+						const comment = parsed.split(";");
+						comment.length > 1 ? (line.comment = comment[1]) : null;
+						const func = parsed.split("[")[0];
+						line.function = parseInt(func.slice(2));
+						let args = parsed.split("[")[1];
+						args = args.substring(0, args.length - 1);
+						line.arguments = args.split(",").filter(Boolean);
+						program.lines.push(line);
+					} else if (
+						parsed.startsWith("JOINT") ||
+						parsed.startsWith("LINEAR")
+					) {
+						const line: ProgramLineObjectAlias = {
+							type: "block",
+							comment: "",
+							function: 0,
+							arguments: [],
+							interpolation: "",
+							speed: 0,
+							accuracy: 0,
+							timer: 0,
+							tool: 0,
+							work: 0,
+							group: 0,
+							operation: "",
+							clamp: 0,
+						};
+						const comment = parsed.split(";");
+						comment.length > 1 ? (line.comment = comment[1]) : null;
+						const parsed2 = parsed.split(" ").filter(Boolean);
+						/*
+						parsed2[parsed2.length - 1].startsWith(";")
+							? parsed2.pop()
+							: (parsed2[parsed2.length - 1] = parsed2[
+									parsed2.length - 1
+							  ].split(";")[0]);
+						*/
+						line.interpolation = parsed2[0];
+						if (parsed2[1].startsWith("SPEED")) {
+							line.speed = parseInt(
+								parsed2[1].slice(parsed2[1].length - 2)
+							);
+						} else {
+							line.speed = parseInt(
+								parsed2[1].substring(0, parsed2[1].length)
+							);
+						}
+						line.accuracy = parseInt(
+							parsed2[2].slice(parsed2[2].length - 2)
+						);
+						line.timer = parseInt(
+							parsed2[3].slice(parsed2[3].length - 2)
+						);
+						line.tool = parseInt(parsed2[4].slice(parsed2[4].length - 2));
+						line.work = parseInt(parsed2[5].slice(parsed2[5].length - 2));
+						line.group = parseInt(
+							parsed2[6].slice(parsed2[6].length - 2)
+						);
+						let index = 0;
+						if (parsed2[7] === "END" || parsed2[7] === "JUMP") {
+							line.operation = parsed2[7];
+							++index;
+						}
+						line.clamp = parseInt(
+							parsed2[7 + index].slice(parsed2[7 + index].length - 2)
+						);
+						program.lines.push(line);
 					} else {
-						line.type = "as";
-						line.command = parsed;
+						const line: ProgramLineObjectAlias = {
+							type: "as",
+							line: "",
+							comment: "",
+						};
+						const comment = parsed.split(";");
+						comment.length > 1 ? (line.comment = comment[1]) : null;
+						line.line = comment[0];
+						program.lines.push(line);
 					}
-					program.lines = [...program.lines, line];
 					++i;
 				}
-				programs = [...programs, program];
+				data.push(program);
 			}
 		}
-		if (programs.length > 0) {
-			return programs;
+		if (data.length === 0) {
+			errors.push(
+				`Error: Unable to locate program information in ${target}`
+			);
 		}
-		throw new Error(
-			`Unable to locate program information information in ${target}`
-		);
+		return { data: data, errors: errors };
 	};
 }

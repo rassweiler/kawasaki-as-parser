@@ -36,6 +36,10 @@
 		"lib/"
 	],
 	"devDependencies": {
+		"@babel/core": "*",
+		"@babel/register": "*",
+		"@babel/preset-env": "*",
+		"@babel/plugin-transform-runtime": "*",
 		"@typescript-eslint/eslint-plugin": "*",
 		"@typescript-eslint/parser": "*",
 		"chai": "*",
