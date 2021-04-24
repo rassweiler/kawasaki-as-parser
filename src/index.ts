@@ -50,7 +50,7 @@ export default class KawasakiParser {
 				rawStringData
 			);
 			parsedControllerData = data.data;
-			controllerObject.errors.concat(data.errors);
+			controllerObject.errors = controllerObject.errors.concat(data.errors);
 		} catch (error) {
 			controllerObject.errors.push(error);
 			return controllerObject;
@@ -63,7 +63,10 @@ export default class KawasakiParser {
 			);
 			data.data !== 0 ? (numberOfRobots = data.data) : null;
 			data.errors.length > 0
-				? controllerObject.errors.concat(data.errors)
+				? controllerObject.errors.concat(
+						controllerObject.errors,
+						data.errors
+				  )
 				: null;
 		} catch (error) {
 			controllerObject.errors.push(error);
@@ -145,45 +148,65 @@ export default class KawasakiParser {
 					programs: [],
 				};
 				robotInfo.errors.length > 0
-					? controllerObject.errors.concat(robotInfo.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotInfo.errors
+					  ))
 					: null;
 				robot.robotType = robotInfo.data.robotType;
 				robot.robotModel = robotInfo.data.robotModel;
 				robotTCP.errors.length > 0
-					? controllerObject.errors.concat(robotTCP.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotTCP.errors
+					  ))
 					: null;
 				robot.tools = robotTCP.data;
 				robotInstall.errors.length > 0
-					? controllerObject.errors.concat(robotInstall.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotInstall.errors
+					  ))
 					: null;
 				robot.installPosition = robotInstall.data;
 				robotJoint.errors.length > 0
-					? controllerObject.errors.concat(robotJoint.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotJoint.errors
+					  ))
 					: null;
 				robot.vsf.softLimits = robotJoint.data;
 				robotLink.errors.length > 0
-					? controllerObject.errors.concat(robotLink.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotLink.errors
+					  ))
 					: null;
 				robot.vsf.linkData = robotLink.data;
 				robotLink.errors.length > 0
-					? controllerObject.errors.concat(robotLink.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotLink.errors
+					  ))
 					: null;
 				robot.vsf.linkData = robotLink.data;
 				robotArea.errors.length > 0
-					? controllerObject.errors.concat(robotArea.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotArea.errors
+					  ))
 					: null;
 				robot.vsf.area = robotArea.data.area;
 				robot.vsf.parts = robotArea.data.parts;
 				robotSphere.errors.length > 0
-					? controllerObject.errors.concat(robotSphere.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotSphere.errors
+					  ))
 					: null;
 				robot.vsf.toolSpheres = robotSphere.data;
 				robotBox.errors.length > 0
-					? controllerObject.errors.concat(robotBox.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotBox.errors
+					  ))
 					: null;
 				robot.vsf.toolBoxes = robotBox.data;
 				robotPrograms.errors.length > 0
-					? controllerObject.errors.concat(robotPrograms.errors)
+					? (controllerObject.errors = controllerObject.errors.concat(
+							robotPrograms.errors
+					  ))
 					: null;
 				robot.programs = robotPrograms.data;
 				/*
@@ -209,7 +232,9 @@ export default class KawasakiParser {
 						parsedControllerData
 					);
 					data.errors.length > 0
-						? controllerObject.errors.concat(data.errors)
+						? (controllerObject.errors = controllerObject.errors.concat(
+								data.errors
+						  ))
 						: null;
 					controllerObject.ncTable = data.data;
 				} catch (error) {
@@ -224,7 +249,9 @@ export default class KawasakiParser {
 				parsedControllerData
 			);
 			data.errors.length > 0
-				? controllerObject.errors.concat(data.errors)
+				? (controllerObject.errors = controllerObject.errors.concat(
+						data.errors
+				  ))
 				: null;
 			controllerObject.ioComments = data.data;
 		} catch (error) {
@@ -236,7 +263,9 @@ export default class KawasakiParser {
 				parsedControllerData
 			);
 			data.errors.length > 0
-				? controllerObject.errors.concat(data.errors)
+				? (controllerObject.errors = controllerObject.errors.concat(
+						data.errors
+				  ))
 				: null;
 			controllerObject.commonPrograms = data.data;
 		} catch (error) {
@@ -256,7 +285,9 @@ export default class KawasakiParser {
 	): Promise<{ data: string[]; errors: string[] }> => {
 		const errors: string[] = [];
 		let data: string[] = [];
-		if (rawControllerString === "") {
+		if (Buffer.isBuffer(rawControllerString)) {
+			errors.push("Error: rawData is string buffer");
+		} else if (rawControllerString === "") {
 			errors.push("Error: rawData is empty string");
 		} else {
 			const parsedControllerData = rawControllerString.split("\n");
@@ -283,7 +314,7 @@ export default class KawasakiParser {
 			data: 0,
 			errors: [],
 		};
-		for (let i = 0; i < parsedControllerData.length; ++i) {
+		for (let i = 0; i < parsedControllerData.length; i += 1) {
 			if (parsedControllerData[i].startsWith("ZSYSTEM")) {
 				const line = parsedControllerData[i].split(" ").filter(Boolean);
 				try {
@@ -371,7 +402,7 @@ export default class KawasakiParser {
 			robotType: "",
 			robotModel: "",
 		};
-		const errors: string[] = [];
+		let errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i] === `.ROBOTDATA${robotNumber}`) {
 				while (parsedControllerData[i] != ".END") {
@@ -382,7 +413,9 @@ export default class KawasakiParser {
 						const rData = KawasakiParser.getRobotTypeFromInt(
 							parseInt(line[3])
 						);
-						rData.errors.length > 0 ? errors.concat(rData.errors) : null;
+						rData.errors.length > 0
+							? (errors = errors.concat(rData.errors))
+							: null;
 						data.robotType = rData.data;
 						data.robotModel = line[6].split("-")[0];
 						return { data: data, errors: errors };
@@ -890,7 +923,7 @@ export default class KawasakiParser {
 								page1 = [...page1, s1];
 								page2 = [...page2, s2];
 							}
-							tool.spheres.concat(page1, page2);
+							tool.spheres = tool.spheres.concat(page1, page2);
 							data.push(tool);
 						}
 						return { data: data, errors: errors };
@@ -977,7 +1010,7 @@ export default class KawasakiParser {
 							s2.x = parseFloat(line[6]) / 10;
 							s2.y = parseFloat(line[7]) / 10;
 							s2.z = parseFloat(line[8]) / 10;
-							data[index].spheres.concat(s1, s2);
+							data[index].spheres = data[index].spheres.concat(s1, s2);
 						}
 						return { data: data, errors: errors };
 					}

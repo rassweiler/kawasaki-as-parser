@@ -1,7 +1,7 @@
 import fs from "fs";
 import { expect } from "chai";
 import KawasakiParser from "../lib/index";
-import { data } from "./Samples/data.js";
+import { aswRaw, sixSpot } from './hooks';
 
 describe('The getRobotDataStringArray function', () =>{
 	it('Should return an object with data and errors if passed an empty string', async ()=> {
@@ -15,6 +15,55 @@ describe('The getRobotDataStringArray function', () =>{
 		const data = await KawasakiParser.getRobotDataStringArray("");
 		expect(data.errors).to.be.a('array');
 		expect(data.errors).to.not.have.lengthOf(0);
+	});
+
+	it('Should contain no data if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getRobotDataStringArray("");
+		expect(data.data).to.be.a('array');
+		expect(data.data).to.have.lengthOf(0);
+	});
+
+	it('Should contain no data if passed a string buffer', async ()=> {
+		const buffer = Buffer.from('Oh boy howdy!');
+		const data = await KawasakiParser.getRobotDataStringArray(buffer);
+		expect(data.data).to.be.a('array');
+		expect(data.data).to.have.lengthOf(0);
+		expect(data.errors).to.be.a('array');
+		expect(data.errors).to.not.have.lengthOf(0);
+	});
+
+	it('Should return data without errors if passed proper data', async () =>{
+		const data = await KawasakiParser.getRobotDataStringArray(aswRaw);
+		expect(data.data).to.be.a('array');
+		expect(data.data).to.not.have.lengthOf(0);
+		expect(data.errors).to.be.a('array');
+		expect(data.errors).to.have.lengthOf(0);
+	});
+});
+
+describe('The getNumberOfRobotsInController function', () =>{
+	it('Should return an object with data and errors if passed an empty array', async ()=> {
+		const data = await KawasakiParser.getNumberOfRobotsInController([]);
+		expect(data).to.be.a('object');
+		expect(data).to.have.property('data');
+		expect(data).to.have.property('errors');
+	});
+
+	it('Should contain errors if passed an empty array', async ()=> {
+		const data = await KawasakiParser.getNumberOfRobotsInController([]);
+		expect(data.errors).to.be.a('array');
+		expect(data.errors).to.not.have.lengthOf(0);
+	});
+
+	it('Should not contain errors if passed proper data', async ()=> {
+		const data = await KawasakiParser.getNumberOfRobotsInController(sixSpot);
+		expect(data.errors).to.have.lengthOf(0);
+	});
+
+	it('Should return proper number of robots', async ()=> {
+		const data = await KawasakiParser.getNumberOfRobotsInController(sixSpot);
+		expect(data.data).to.be.a('number');
+		expect(data.data).to.equal(6);
 	});
 });
 
@@ -37,19 +86,31 @@ describe('The getControllerObject function', () =>{
 	it('Should contain no robots if passed an empty string', async ()=> {
 		const controllerObject = await KawasakiParser.getControllerObject("");
 		expect(controllerObject.robots).to.be.a('array');
-		expect(controllerObject.robots).to.be.eql([]);
+		expect(controllerObject.robots).to.have.lengthOf(0);
 	});
 
 	it('Should contain no common programs if passed an empty string', async ()=> {
 		const controllerObject = await KawasakiParser.getControllerObject("");
 		expect(controllerObject.commonPrograms).to.be.a('array');
-		expect(controllerObject.commonPrograms).to.be.eql([]);
+		expect(controllerObject.commonPrograms).to.have.lengthOf(0);
 	});
 
 	it('Should contain no IO comments if passed an empty string', async ()=> {
 		const controllerObject = await KawasakiParser.getControllerObject("");
 		expect(controllerObject.ioComments).to.be.a('object');
 		expect(controllerObject.ioComments).to.be.eql({inputs:[], outputs: []});
+	});
+
+	it('Should contain no variables if passed an empty string', async ()=> {
+		const controllerObject = await KawasakiParser.getControllerObject("");
+		expect(controllerObject.stringVars).to.be.a('array');
+		expect(controllerObject.stringVars).to.have.lengthOf(0);
+		expect(controllerObject.realVars).to.be.a('array');
+		expect(controllerObject.realVars).to.have.lengthOf(0);
+		expect(controllerObject.jointVars).to.be.a('array');
+		expect(controllerObject.jointVars).to.have.lengthOf(0);
+		expect(controllerObject.transVars).to.be.a('array');
+		expect(controllerObject.transVars).to.have.lengthOf(0);
 	});
 
 	it('Should contain errors if passed an empty string', async ()=> {
