@@ -1,13 +1,16 @@
 {
 	"name": "@rassweiler/kawasaki-as-parser",
-	"version": "1.0.1",
+	"version": "2.0.0",
 	"description": "Kawasaki backup parser",
-	"main": "index.js",
+	"main": "lib/index.js",
+	"types": "lib",
 	"scripts": {
-		"mocha": "mocha --require @babel/register",
-		"build": "babel src --out-dir lib",
-		"test": "npm run build && npm run mocha",
-		"preversion": "npm test",
+		"build": "npx tsc -p .",
+		"lint": "eslint . --cache --ext .js,.jsx,.ts,.tsx",
+		"lint:fix": "eslint . --fix --cache --ext .js,.jsx,.ts,.tsx",
+		"test": "mocha --require @babel/register",
+		"lbt": "yarn lint && yarn build && yarn test",
+		"preversion": "yarn lbt",
 		"version": "git add -A",
 		"postversion": "git push && git push --tags"
 	},
@@ -30,19 +33,23 @@
 	"files": [
 		"LICENSE",
 		"README.md",
-		"index.js",
 		"lib/"
 	],
 	"devDependencies": {
-		"@babel/cli": "^7.6.0",
-		"@babel/core": "^7.5.5",
-		"@babel/node": "^7.5.5",
-		"@babel/plugin-proposal-class-properties": "^7.5.5",
-		"@babel/plugin-transform-runtime": "^7.6.0",
-		"@babel/preset-env": "^7.5.5",
-		"@babel/register": "^7.5.5",
-		"@babel/runtime": "^7.6.0",
+		"@babel/core": "*",
+		"@babel/plugin-transform-runtime": "*",
+		"@babel/preset-env": "*",
+		"@babel/register": "*",
+		"@types/node": "^14.14.41",
+		"@typescript-eslint/eslint-plugin": "*",
+		"@typescript-eslint/parser": "*",
 		"chai": "*",
-		"mocha": "*"
+		"eslint": "*",
+		"eslint-config-prettier": "*",
+		"eslint-plugin-prettier": "*",
+		"mocha": "*",
+		"nyc": "*",
+		"prettier": "*",
+		"typescript": "*"
 	}
 }
