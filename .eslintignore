@@ -1,0 +1,12 @@
+# Dependency directory
+node_modules
+
+# Tests
+test
+
+lib
+
+index.js
+
+# Package.json
+package.json

@@ -1,0 +1,27 @@
+{
+  "files.associations": {
+    ".babelrc": "jsonc",
+    ".eslintrc": "jsonc",
+    ".prettierrc": "jsonc",
+    ".eslintignore": "ignore"
+  },
+
+  "javascript.validate.enable": false,
+  "javascript.format.enable": false,
+  "typescript.format.enable": false,
+
+  "search.exclude": {
+    ".git": true,
+    ".eslintcache": true,
+    "lib": true,
+    "node_modules": true,
+    "npm-debug.log.*": true,
+    "test": true,
+    "yarn.lock": true
+  },
+
+  "editor.codeActionsOnSave": {
+	  "source.fixAll.eslint": true
+  },
+  "editor.formatOnSave":false
+}
