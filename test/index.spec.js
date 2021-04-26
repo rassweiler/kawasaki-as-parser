@@ -68,55 +68,57 @@ describe('The getNumberOfRobotsInController function', () =>{
 });
 
 describe('The getControllerObject function', () =>{
-	it('Should return an object if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject).to.be.a('object');
-	});
-
-	it('Should have an empty controllerType if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject.controllerType).to.be.equal('');
-	});
-
-	it('Should have Kawasaki as a manufacturer if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject.manufacturer).to.be.equal('Kawasaki');
-	});
-
-	it('Should contain no robots if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject.robots).to.be.a('array');
-		expect(controllerObject.robots).to.have.lengthOf(0);
-	});
-
-	it('Should contain no common programs if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject.commonPrograms).to.be.a('array');
-		expect(controllerObject.commonPrograms).to.have.lengthOf(0);
-	});
-
-	it('Should contain no IO comments if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject.ioComments).to.be.a('object');
-		expect(controllerObject.ioComments).to.be.eql({inputs:[], outputs: []});
-	});
-
-	it('Should contain no variables if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject.stringVars).to.be.a('array');
-		expect(controllerObject.stringVars).to.have.lengthOf(0);
-		expect(controllerObject.realVars).to.be.a('array');
-		expect(controllerObject.realVars).to.have.lengthOf(0);
-		expect(controllerObject.jointVars).to.be.a('array');
-		expect(controllerObject.jointVars).to.have.lengthOf(0);
-		expect(controllerObject.transVars).to.be.a('array');
-		expect(controllerObject.transVars).to.have.lengthOf(0);
+	it('Should return an object with data and errors', async ()=> {
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data).to.be.a('object');
+		expect(data).to.have.property('data');
+		expect(data).to.have.property('errors');
 	});
 
 	it('Should contain errors if passed an empty string', async ()=> {
-		const controllerObject = await KawasakiParser.getControllerObject("");
-		expect(controllerObject.errors).to.be.a('array');
-		expect(controllerObject.errors).to.not.have.lengthOf(0);
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data.errors).to.be.a('array');
+		expect(data.errors).to.not.have.lengthOf(0);
+	});
+
+	it('Should have an empty controllerType if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data.data.controllerType).to.be.equal('');
+	});
+
+	it('Should have Kawasaki as a manufacturer if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data.data.manufacturer).to.be.equal('Kawasaki');
+	});
+
+	it('Should contain no robots if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data.data.robots).to.be.a('array');
+		expect(data.data.robots).to.have.lengthOf(0);
+	});
+
+	it('Should contain no common programs if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data.data.commonPrograms).to.be.a('array');
+		expect(data.data.commonPrograms).to.have.lengthOf(0);
+	});
+
+	it('Should contain no IO comments if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data.data.ioComments).to.be.a('object');
+		expect(data.data.ioComments).to.be.eql({inputs:[], outputs: []});
+	});
+
+	it('Should contain no variables if passed an empty string', async ()=> {
+		const data = await KawasakiParser.getControllerObject("");
+		expect(data.data.stringVars).to.be.a('array');
+		expect(data.data.stringVars).to.have.lengthOf(0);
+		expect(data.data.realVars).to.be.a('array');
+		expect(data.data.realVars).to.have.lengthOf(0);
+		expect(data.data.jointVars).to.be.a('array');
+		expect(data.data.jointVars).to.have.lengthOf(0);
+		expect(data.data.transVars).to.be.a('array');
+		expect(data.data.transVars).to.have.lengthOf(0);
 	});
 });
 /*
