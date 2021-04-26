@@ -2,19 +2,19 @@ export type ControllerObjectAlias = {
 	controllerType: string;
 	manufacturer: "Kawasaki";
 	robots: RobotObjectAlias[];
-	ncTable: MHTableObjectAlias[];
 	ioComments: IOCommentObjectAlias;
 	commonPrograms: ProgramObjectAlias[];
 	stringVars: StringVarObjectAlias[];
 	realVars: RealVarObjectAlias[];
 	jointVars: JointVarObjectAlias[];
 	transVars: TransVarObjectAlias[];
-	errors: string[];
 };
 
 export type RobotObjectAlias = {
 	robotType: RobotTypeAlias;
 	robotModel: string;
+	bcds: BCDObjectAlias[];
+	ncTable: MHTableObjectAlias[];
 	tools: ToolObjectAlias[];
 	installPosition: InstallPositionAlias;
 	vsf: VSFObjectAlias;
@@ -33,6 +33,11 @@ export type RobotTypeAlias =
 	| "Locator"
 	| ""
 	| "MH";
+
+export type BCDObjectAlias = {
+	bcd: number;
+	program: number;
+};
 
 export type ToolObjectAlias = {
 	tcp: {
@@ -194,7 +199,7 @@ export type ProgramObjectAlias = {
 
 export type ProgramLineObjectAlias =
 	| {
-			type: "comment" | "block" | "as" | "function";
+			type: "block" | "function";
 			comment: string;
 			function: number;
 			arguments: string[];
@@ -205,11 +210,15 @@ export type ProgramLineObjectAlias =
 			tool: number;
 			work: number;
 			group: number;
+			mh: number;
+			inputs: string;
+			outputs: string;
+			joints: string[];
 			operation: string;
 			clamp: number;
 	  }
 	| {
-			type: "comment" | "block" | "as" | "function";
+			type: "comment" | "as";
 			line: string;
 			comment: string;
 	  };
