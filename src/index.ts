@@ -667,9 +667,8 @@ export default class KawasakiParser {
 								  )
 								: null;
 							startIndex++;
-							mh.comment = parsedControllerData[startIndex].split(
-								/ (.+)/
-							)[1];
+							mh.comment =
+								parsedControllerData[startIndex].split(/ (.+)/)[1];
 							data.push(mh);
 							++index;
 						}
@@ -1719,9 +1718,10 @@ export default class KawasakiParser {
 	 *	Returns an object of structure:
 	 * {data: ProgramLineObjectAlias, errors: string[]}
 	 ************************************************************************/
-	static getProgramLineObject(
-		parsedLine: string
-	): { data: ProgramLineObjectAlias; errors: string[] } {
+	static getProgramLineObject(parsedLine: string): {
+		data: ProgramLineObjectAlias;
+		errors: string[];
+	} {
 		const errors: string[] = [];
 		if (parsedLine.startsWith(";")) {
 			const line: ProgramLineObjectAlias = {
@@ -1930,9 +1930,8 @@ export default class KawasakiParser {
 								);
 
 								// Squeeze
-								line.weld.squeezeTime = KawasakiParser.getDecimalFromHex(
-									val[2] + val[3]
-								);
+								line.weld.squeezeTime =
+									KawasakiParser.getDecimalFromHex(val[2] + val[3]);
 
 								// Current 1
 								line.weld.current1 =

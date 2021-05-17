@@ -36,20 +36,19 @@
 		"lib/"
 	],
 	"devDependencies": {
-		"@babel/core": "*",
-		"@babel/plugin-transform-runtime": "*",
-		"@babel/preset-env": "*",
-		"@babel/register": "*",
+		"@babel/core": "^7.14.2",
+		"@babel/plugin-transform-runtime": "^7.14.2",
+		"@babel/preset-env": "^7.14.2",
+		"@babel/register": "^7.13.16",
 		"@types/node": "^14.14.41",
-		"@typescript-eslint/eslint-plugin": "*",
-		"@typescript-eslint/parser": "*",
-		"chai": "*",
-		"eslint": "*",
-		"eslint-config-prettier": "*",
-		"eslint-plugin-prettier": "*",
-		"mocha": "*",
-		"nyc": "*",
-		"prettier": "*",
-		"typescript": "*"
+		"@typescript-eslint/eslint-plugin": "^4.23.0",
+		"@typescript-eslint/parser": "^4.23.0",
+		"chai": "^4.3.4",
+		"eslint": "^7.26.0",
+		"eslint-config-prettier": "^8.3.0",
+		"eslint-plugin-prettier": "^3.4.0",
+		"mocha": "^8.4.0",
+		"prettier": "^2.3.0",
+		"typescript": "^4.2.4"
 	}
 }
