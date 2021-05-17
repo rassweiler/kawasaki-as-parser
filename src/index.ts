@@ -3,7 +3,6 @@ import {
 	IOCommentObjectAlias,
 	RobotObjectAlias,
 	MHTableObjectAlias,
-	RobotTypeAlias,
 	ToolObjectAlias,
 	InstallPositionAlias,
 	SoftLimitObjectAlias,
@@ -20,6 +19,10 @@ import {
 	RealVarObjectAlias,
 	JointVarObjectAlias,
 	TransVarObjectAlias,
+	SwitchAlias,
+	PositionObjectAlias,
+	SpotObjectAlias,
+	StepupObjectAlias,
 } from "./interfaces";
 
 export default class KawasakiParser {
@@ -60,6 +63,18 @@ export default class KawasakiParser {
 			return { data: controllerObject, errors: errors };
 		}
 
+		// Determine controller type
+		try {
+			const data = await KawasakiParser.getControllerTypeString(
+				parsedControllerData
+			);
+			controllerObject.controllerType = data.data;
+			data.errors.length > 0 ? (errors = errors.concat(data.errors)) : null;
+		} catch (error) {
+			errors.push(error);
+			return { data: controllerObject, errors: errors };
+		}
+
 		// Determine number of robots in controller
 		try {
 			const data = await KawasakiParser.getNumberOfRobotsInController(
@@ -75,6 +90,46 @@ export default class KawasakiParser {
 		// Parse robot specific data
 		if (numberOfRobots > 0) {
 			for (let index = 1; index <= numberOfRobots; ++index) {
+				const robot: RobotObjectAlias = {
+					type: "",
+					model: "",
+					bcds: [],
+					ncTable: [],
+					tools: [],
+					installPosition: {
+						x: 0,
+						y: 0,
+						z: 0,
+						rx: 0,
+						ry: 0,
+						rz: 0,
+					},
+					vsf: {
+						area: {
+							enabled: false,
+							upper: 0,
+							lower: 0,
+							lines: [],
+						},
+						parts: [],
+						linkData: [],
+						toolSpheres: [],
+						toolBoxes: [],
+						softLimits: [],
+					},
+					isLinear: false,
+					spotGuns: [],
+					rac: [],
+					programs: [],
+					switches: [],
+					homePosition: [],
+					jumpPosition: [],
+					currentPosition: {
+						program: 0,
+						step: 0,
+						joints: [],
+					},
+				};
 				const [
 					robotInfo,
 					robotNC,
@@ -119,46 +174,42 @@ export default class KawasakiParser {
 						index
 					),
 				]);
-				const robotBCD = await KawasakiParser.getRobotBCDArray(
+				const robotLinear = await KawasakiParser.getRobotLinearBool(
 					parsedControllerData,
 					index
 				);
-				const robot: RobotObjectAlias = {
-					robotType: "",
-					robotModel: "",
-					bcds: [],
-					ncTable: [],
-					tools: [],
-					installPosition: {
-						x: 0,
-						y: 0,
-						z: 0,
-						rx: 0,
-						ry: 0,
-						rz: 0,
-					},
-					vsf: {
-						area: {
-							enabled: false,
-							upper: 0,
-							lower: 0,
-							lines: [],
-						},
-						parts: [],
-						linkData: [],
-						toolSpheres: [],
-						toolBoxes: [],
-						softLimits: [],
-					},
-					spot: [],
-					rac: [],
-					programs: [],
-				};
+				robotLinear.errors.length > 0
+					? (errors = errors.concat(robotLinear.errors))
+					: null;
+				robot.isLinear = robotLinear.data;
+				const [
+					robotBCD,
+					robotSwitches,
+					robotHome,
+					robotJump,
+					robotPosition,
+				] = await Promise.all([
+					KawasakiParser.getRobotBCDArray(parsedControllerData, index),
+					KawasakiParser.getRobotSwitchArray(parsedControllerData, index),
+					KawasakiParser.getRobotHomePositionArray(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotJumpPositionArray(
+						parsedControllerData,
+						index
+					),
+					KawasakiParser.getRobotPositionObject(
+						parsedControllerData,
+						index,
+						controllerObject.controllerType
+					),
+				]);
 				robotInfo.errors.length > 0
 					? (errors = errors.concat(robotInfo.errors))
 					: null;
-				robot.robotType = robotInfo.data.robotType;
-				robot.robotModel = robotInfo.data.robotModel;
+				robot.type = robotInfo.data.type;
+				robot.model = robotInfo.data.model;
 				robotBCD.errors.length > 0
 					? (errors = errors.concat(robotBCD.errors))
 					: null;
@@ -204,6 +255,34 @@ export default class KawasakiParser {
 					? (errors = errors.concat(robotPrograms.errors))
 					: null;
 				robot.programs = robotPrograms.data;
+				robotSwitches.errors.length > 0
+					? (errors = errors.concat(robotSwitches.errors))
+					: null;
+				robot.switches = robotSwitches.data;
+				robotHome.errors.length > 0
+					? (errors = errors.concat(robotHome.errors))
+					: null;
+				robot.homePosition = robotHome.data;
+				robotJump.errors.length > 0
+					? (errors = errors.concat(robotJump.errors))
+					: null;
+				robot.jumpPosition = robotJump.data;
+				robotPosition.errors.length > 0
+					? (errors = errors.concat(robotPosition.errors))
+					: null;
+				robot.currentPosition = robotPosition.data;
+				for (let numGun = 1; numGun < 16; numGun += 1) {
+					const gunData = await KawasakiParser.getRobotGunDataObject(
+						parsedControllerData,
+						index,
+						numGun,
+						robot.isLinear
+					);
+					gunData.errors.length > 0
+						? (errors = errors.concat(gunData.errors))
+						: null;
+					robot.spotGuns.push(gunData.data);
+				}
 				controllerObject.robots.push(robot);
 			}
 		}
@@ -316,6 +395,33 @@ export default class KawasakiParser {
 	};
 
 	/***********************************************************************
+	 *	Determine the type of controller
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file.
+	 *	Returns a promise, object of structure {data: string, errors: string[]}
+	 ************************************************************************/
+	static getControllerTypeString = async (
+		parsedControllerData: string[]
+	): Promise<{ data: string; errors: string[] }> => {
+		const data: { data: string; errors: string[] } = {
+			data: "",
+			errors: [],
+		};
+		for (let i = 0; i < parsedControllerData.length; i += 1) {
+			if (parsedControllerData[i].includes("TCONTROLLER")) {
+				data.data = "T";
+				return data;
+			}
+			if (parsedControllerData[i].includes("ECONTROLLER")) {
+				data.data = "E";
+				return data;
+			}
+		}
+		data.errors.push("Unable to locate controller type");
+		return data;
+	};
+
+	/***********************************************************************
 	 *	Get Human Readable Robot type from integer
 	 *
 	 *	Expects an integer.
@@ -324,10 +430,10 @@ export default class KawasakiParser {
 	static getRobotTypeFromInt = (
 		type: number
 	): {
-		data: RobotTypeAlias;
+		data: string;
 		errors: string[];
 	} => {
-		let robotType: RobotTypeAlias = "";
+		let robotType = "";
 		const errors: string[] = [];
 		if (Number.isInteger(type)) {
 			switch (type) {
@@ -376,17 +482,17 @@ export default class KawasakiParser {
 		robotNumber: number
 	): Promise<{
 		data: {
-			robotType: RobotTypeAlias;
-			robotModel: string;
+			type: string;
+			model: string;
 		};
 		errors: string[];
 	}> => {
 		const data: {
-			robotType: RobotTypeAlias;
-			robotModel: string;
+			type: string;
+			model: string;
 		} = {
-			robotType: "",
-			robotModel: "",
+			type: "",
+			model: "",
 		};
 		let errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
@@ -402,8 +508,8 @@ export default class KawasakiParser {
 						rData.errors.length > 0
 							? (errors = errors.concat(rData.errors))
 							: null;
-						data.robotType = rData.data;
-						data.robotModel = line[6].split("-")[0];
+						data.type = rData.data;
+						data.model = line[6].split("-")[0];
 						return { data: data, errors: errors };
 					}
 					++i;
@@ -413,6 +519,57 @@ export default class KawasakiParser {
 		}
 		errors.push("Unable to locate .ROBOTDATA");
 		return { data: data, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Determine the robots current position
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file, the robot number, and the controller type.
+	 *	Returns a promise, object of structure {data: PositionObjectAlias, errors: string[]}
+	 ************************************************************************/
+	static getRobotPositionObject = async (
+		parsedControllerData: string[],
+		robotNumber: number,
+		controllerType: string
+	): Promise<{ data: PositionObjectAlias; errors: string[] }> => {
+		const data: { data: PositionObjectAlias; errors: string[] } = {
+			data: {
+				program: 0,
+				step: 0,
+				joints: [],
+			},
+			errors: [],
+		};
+		if (controllerType === "T") {
+			const target =
+				robotNumber === 1 ? `.CONDITION` : `.CONDITION${robotNumber}`;
+			for (let i = 0; i < parsedControllerData.length; i += 1) {
+				if (parsedControllerData[i].startsWith(target)) {
+					while (parsedControllerData[i] != ".END") {
+						if (
+							parsedControllerData[i].startsWith("STEP1ENV_CALL_PRGNAME")
+						) {
+							const parsed = parsedControllerData[i]
+								.split(" ")
+								.filter(Boolean);
+							data.data.program = parseInt(
+								parsed[1].replace(`r${robotNumber}_pg`, "")
+							);
+						}
+						if (parsedControllerData[i].startsWith("STEP1ENV_PRG_STEP")) {
+							const parsed = parsedControllerData[i]
+								.split(" ")
+								.filter(Boolean);
+							data.data.step = parseInt(parsed[1]);
+						}
+						i += 1;
+					}
+					return data;
+				}
+			}
+		}
+		data.errors.push(`Error: Unable to locate robot position data.`);
+		return data;
 	};
 
 	/***********************************************************************
@@ -1083,7 +1240,7 @@ export default class KawasakiParser {
 	): Promise<{ data: ProgramObjectAlias[]; errors: string[] }> => {
 		const target = `.PROGRAM r${robotNumber}`;
 		const data: ProgramObjectAlias[] = [];
-		const errors: string[] = [];
+		let errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (parsedControllerData[i].startsWith(target)) {
 				const program: ProgramObjectAlias = {
@@ -1105,148 +1262,17 @@ export default class KawasakiParser {
 					parsed.length > 1 ? (program.comment = parsed[1]) : null;
 				}
 				i += 1;
+				// Parse program lines
 				while (parsedControllerData[i] != ".END") {
 					const parsed = parsedControllerData[i];
-					if (parsed.startsWith(";")) {
-						const line: ProgramLineObjectAlias = {
-							type: "comment",
-							line: "",
-							comment: "",
-						};
-						line.comment = parsed.substr(1);
-						program.lines.push(line);
-					} else if (parsed.startsWith("FN")) {
-						const line: ProgramLineObjectAlias = {
-							type: "function",
-							comment: "",
-							function: 0,
-							arguments: [],
-							interpolation: "",
-							speed: 0,
-							accuracy: 0,
-							timer: 0,
-							tool: 0,
-							work: 0,
-							group: 0,
-							mh: 0,
-							inputs: "",
-							outputs: "",
-							joints: [],
-							operation: "",
-							clamp: 0,
-						};
-						const comment = parsed.split(";");
-						comment.length > 1 ? (line.comment = comment[1]) : null;
-						const func = parsed.split("[")[0];
-						line.function = parseInt(func.slice(2));
-						let args = parsed.split("[")[1];
-						args = args.substring(0, args.length - 1);
-						line.arguments = args.split(",").filter(Boolean);
-						program.lines.push(line);
-					} else if (
-						parsed.startsWith("JOINT") ||
-						parsed.startsWith("LINEAR")
-					) {
-						const line: ProgramLineObjectAlias = {
-							type: "block",
-							comment: "",
-							function: 0,
-							arguments: [],
-							interpolation: "",
-							speed: 0,
-							accuracy: 0,
-							timer: 0,
-							tool: 0,
-							work: 0,
-							group: 0,
-							mh: 0,
-							inputs: "",
-							outputs: "",
-							joints: [],
-							operation: "",
-							clamp: 0,
-						};
-						const comment = parsed.split(";");
-						comment.length > 1 ? (line.comment = comment[1]) : null;
-						const parsed2 = parsed.split(" ").filter(Boolean);
-						line.interpolation = parsed2[0];
-						if (parsed2[1].startsWith("SPEED")) {
-							line.speed = parseInt(parsed2[1].replace("SPEED", ""));
-						} else {
-							line.speed = parseFloat(parsed2[1]);
-						}
-						for (let index = 0; index < parsed2.length; index += 1) {
-							if (parsed2[index].startsWith("ACCU")) {
-								line.accuracy = parseInt(
-									parsed2[index].replace("ACCU", "")
-								);
-							}
-							if (parsed2[index].startsWith("TIMER")) {
-								line.timer = parseInt(
-									parsed2[index].replace("TIMER", "")
-								);
-							}
-							if (parsed2[index].startsWith("TOOL")) {
-								line.tool = parseInt(
-									parsed2[index].replace("TOOL", "")
-								);
-							}
-							if (parsed2[index].startsWith("WORK")) {
-								line.work = parseInt(
-									parsed2[index].replace("WORK", "")
-								);
-							}
-							if (parsed2[index].startsWith("GROUP")) {
-								line.group = parseInt(
-									parsed2[index].replace("GROUP", "")
-								);
-							}
-							if (parsed2[index].startsWith("MATHN")) {
-								line.mh = parseInt(parsed2[index].replace("MATHN", ""));
-							}
-							if (
-								parsed2[index].startsWith("CLAMP") &&
-								parsed2[index].replace("CLAMP", "") !== ""
-							) {
-								line.clamp = parseInt(
-									parsed2[index].replace("CLAMP", "")
-								);
-							}
-							if (
-								parsed2[index] === "END" ||
-								parsed2[index] === "JUMP"
-							) {
-								line.operation = parsed2[index];
-							}
-							if (parsed2[index].startsWith("OX")) {
-								line.outputs = parsed2[index].replace("OX=", "");
-							}
-							if (parsed2[index].startsWith("WX")) {
-								line.inputs = parsed2[index].replace("WX=", "");
-							}
-							if (parsed2[index].startsWith("WX")) {
-								line.inputs = parsed2[index].replace("WX=", "");
-							}
-							if (parsed2[index].startsWith("#[")) {
-								let joints = parsed2[index].split(";")[0];
-								joints = joints.replace("#[", "");
-								joints = joints.replace("]", "");
-								line.joints = joints.split(",");
-							}
-						}
-						program.lines.push(line);
-					} else {
-						const line: ProgramLineObjectAlias = {
-							type: "as",
-							line: "",
-							comment: "",
-						};
-						const comment = parsed.split(";");
-						comment.length > 1 ? (line.comment = comment[1]) : null;
-						line.line = comment[0];
-						program.lines.push(line);
+					const line = KawasakiParser.getProgramLineObject(parsed);
+					if (line.errors) {
+						errors = errors.concat(line.errors);
 					}
-					++i;
+					if (line.data) {
+						program.lines.push(line.data);
+					}
+					i += 1;
 				}
 				data.push(program);
 			}
@@ -1256,6 +1282,373 @@ export default class KawasakiParser {
 				`Error: Unable to locate program information in ${target}`
 			);
 		}
+		return { data: data, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Parse robot switch data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: SwitchAlias[], errors: string[]}
+	 ************************************************************************/
+	static getRobotSwitchArray = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: SwitchAlias[]; errors: string[] }> => {
+		const target = `.ROBOTDATA${robotNumber}`;
+		const target2 = robotNumber === 1 ? `.SYSDATA` : `.SYSDATA${robotNumber}`;
+		const data: SwitchAlias[] = [];
+		const errors: string[] = [];
+		for (let i = 0; i < parsedControllerData.length; ++i) {
+			if (parsedControllerData[i].startsWith(target2)) {
+				i += 1;
+				// Look for switches
+				while (parsedControllerData[i] != ".END") {
+					if (
+						parsedControllerData[i].startsWith("SWITCH") ||
+						parsedControllerData[i].startsWith("DEFSIG_O TIP")
+					) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						const zSwitch: SwitchAlias = {
+							switch: "",
+							value: false,
+						};
+						if (parsed.length > 2) {
+							zSwitch.switch = parsed[1];
+							zSwitch.value = parsed[2] === "ON";
+							data.push(zSwitch);
+						}
+					}
+					i += 1;
+				}
+			}
+			if (parsedControllerData[i].startsWith(target)) {
+				i += 1;
+				// Look for switches
+				while (parsedControllerData[i] != ".END") {
+					if (parsedControllerData[i].startsWith("ZSWITCH")) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						const zSwitch: SwitchAlias = {
+							switch: "",
+							value: false,
+						};
+						if (parsed.length > 2) {
+							zSwitch.switch = parsed[1];
+							zSwitch.value = parsed[2] === "ON";
+							data.push(zSwitch);
+						}
+					}
+					i += 1;
+				}
+			}
+		}
+		if (data.length === 0) {
+			errors.push(
+				`Error: Unable to locate zswitch information in ${target}`
+			);
+		}
+		return { data: data, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Parse robot home data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: number[], errors: string[]}
+	 ************************************************************************/
+	static getRobotHomePositionArray = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: number[]; errors: string[] }> => {
+		const target = robotNumber === 1 ? `.SYSDATA` : `.SYSDATA${robotNumber}`;
+		const data: number[] = [];
+		const errors: string[] = [];
+		for (let i = 0; i < parsedControllerData.length; ++i) {
+			if (parsedControllerData[i].startsWith(target)) {
+				i += 1;
+				// Look for switches
+				while (parsedControllerData[i] != ".END") {
+					if (parsedControllerData[i].startsWith("HOME 1")) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						if (parsed.length > 2) {
+							for (let index = 2; index < parsed.length; index += 1) {
+								data.push(parseFloat(parsed[index]));
+							}
+						}
+						return { data: data, errors: errors };
+					}
+					i += 1;
+				}
+			}
+		}
+		if (data.length === 0) {
+			errors.push(`Error: Unable to locate home information in ${target}`);
+		}
+		return { data: data, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Parse robot jump data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file and an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: number[], errors: string[]}
+	 ************************************************************************/
+	static getRobotJumpPositionArray = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: number[]; errors: string[] }> => {
+		const target = `.PROGRAM r${robotNumber}_pg0`;
+		const data: number[] = [];
+		const errors: string[] = [];
+		for (let i = 0; i < parsedControllerData.length; ++i) {
+			if (parsedControllerData[i].startsWith(target)) {
+				i += 1;
+				// Look for switches
+				while (parsedControllerData[i] != ".END") {
+					if (parsedControllerData[i].includes("JUMP")) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						for (let index = 0; index < parsed.length; index += 1) {
+							if (parsed[index].startsWith("#[")) {
+								let joint = parsed[index].split(";")[0];
+								joint = joint.replace("#[", "");
+								joint = joint.replace("]", "");
+								const joints = joint.split(",");
+								for (
+									let index2 = 0;
+									index < joints.length;
+									index2 += 1
+								) {
+									data.push(parseFloat(joints[index2]));
+								}
+								return { data: data, errors: errors };
+							}
+						}
+					}
+					i += 1;
+				}
+			}
+		}
+		if (data.length === 0) {
+			errors.push(`Error: Unable to locate jump information in ${target}`);
+		}
+		return { data: data, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Parse robot linear data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file,
+	 * an integer for the robot number.
+	 *	Returns a promise, object of structure:
+	 * {data: boolean, errors: string[]}
+	 ************************************************************************/
+	static getRobotLinearBool = async (
+		parsedControllerData: string[],
+		robotNumber: number
+	): Promise<{ data: boolean; errors: string[] }> => {
+		let data = false;
+		const errors: string[] = [];
+		for (let i = 0; i < parsedControllerData.length; ++i) {
+			if (parsedControllerData[i].startsWith(`.ROBOTDATA${robotNumber}`)) {
+				while (parsedControllerData[i] != ".END") {
+					if (parsedControllerData[i].startsWith("OPTION03_01")) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						if (parsed.length > 1) {
+							data = parsed[1] === "1";
+							return { data: data, errors: errors };
+						}
+					}
+					i += 1;
+				}
+			}
+		}
+		errors.push(`Error: Unable to locate robot linear information`);
+		return { data: data, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Parse robot gun data
+	 *
+	 *	Expects a utf8 string array containing the contents of an as file,
+	 * an integer for the robot number, and an int for gun number.
+	 *	Returns a promise, object of structure:
+	 * {data: SpotObjectAlias, errors: string[]}
+	 ************************************************************************/
+	static getRobotGunDataObject = async (
+		parsedControllerData: string[],
+		robotNumber: number,
+		gunNumber: number,
+		isLinear: boolean
+	): Promise<{ data: SpotObjectAlias; errors: string[] }> => {
+		const target = robotNumber === 1 ? `.AUXDATA` : `.AUXDATA${robotNumber}`;
+		const data: SpotObjectAlias = {
+			dresserUse: false,
+			leakCheck: false,
+			reweld: false,
+			welderType: "",
+			gunType: "",
+			squeeze: 0,
+			gunArea: 0,
+			maxPressure: 0,
+			turnsRatio: 0,
+			tipMovableClearance: 0,
+			tipFixedClearance: 0,
+			tipMovableWearLimit: 0,
+			tipFixedwearLimit: 0,
+			linearUp: {
+				enabled: false,
+				values: [],
+			},
+			formerLinearUp: {
+				enabled: false,
+				values: [],
+			},
+		};
+		const errors: string[] = [];
+		for (let i = 0; i < parsedControllerData.length; ++i) {
+			if (parsedControllerData[i].startsWith(target)) {
+				while (parsedControllerData[i] != ".END") {
+					if (
+						parsedControllerData[i].startsWith(`TW_GUN${gunNumber}_SPEC `)
+					) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						if (parsed.length > 9) {
+							data.leakCheck = parsed[2] === "1";
+							if (parsed[4] === "1") {
+								data.gunType = "pincher";
+							}
+							if (parsed[4] === "2") {
+								data.gunType = "stud";
+							}
+							data.squeeze = parseInt(parsed[6]);
+							data.gunArea = parseInt(parsed[7]);
+							data.turnsRatio = parseInt(parsed[8]);
+							data.maxPressure = Math.round(parseInt(parsed[9]) * 9.8);
+						}
+					}
+					if (
+						parsedControllerData[i].startsWith(
+							`SG_GUN_1[${gunNumber}]_T `
+						)
+					) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						if (parsed.length > 10) {
+							data.tipMovableClearance = parseFloat(parsed[1]) / 10;
+							data.tipFixedClearance = parseFloat(parsed[2]) / 10;
+							data.tipMovableWearLimit = parseFloat(parsed[3]) / 100;
+							data.tipFixedwearLimit = parseFloat(parsed[4]) / 100;
+						}
+					}
+					if (
+						parsedControllerData[i].startsWith(`TW_GUN${gunNumber}_CUR `)
+					) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						if (parsed.length > 43) {
+							data.linearUp.enabled = parsed[1] === "1";
+							for (let index = 0; index < 10; index += 1) {
+								const stepUp: StepupObjectAlias = {
+									onePercentSetting: 0,
+									onePercentValue: 0,
+									twoPercentSetting: 0,
+									twoPercentValue: 0,
+								};
+								const ops = parseInt(parsed[index + 4]);
+								const tps = parseInt(parsed[index + 14]);
+								stepUp.onePercentSetting =
+									ops > 3200 ? ops - 65536 : ops;
+								stepUp.twoPercentSetting =
+									ops > 3200 ? ops - 65536 : tps;
+								const offset = isLinear ? -1 : 0;
+								if (isLinear && index === 0) {
+									stepUp.onePercentValue = 0;
+									stepUp.twoPercentValue = 0;
+								} else {
+									stepUp.onePercentValue = parseInt(
+										parsed[24 + offset + index]
+									);
+									stepUp.twoPercentValue = parseInt(
+										parsed[34 + offset + index]
+									);
+								}
+								data.linearUp.values.push(stepUp);
+							}
+						}
+					}
+					if (
+						parsedControllerData[i].startsWith(`TW_GUN${gunNumber}_CUR2 `)
+					) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						if (parsed.length > 43) {
+							data.formerLinearUp.enabled = parsed[1] === "1";
+							for (let index = 0; index < 10; index += 1) {
+								const stepUp: StepupObjectAlias = {
+									onePercentSetting: 0,
+									onePercentValue: 0,
+									twoPercentSetting: 0,
+									twoPercentValue: 0,
+								};
+								const ops = parseInt(parsed[index + 4]);
+								const tps = parseInt(parsed[index + 14]);
+								stepUp.onePercentSetting =
+									ops > 3200 ? ops - 65536 : ops;
+								stepUp.twoPercentSetting =
+									ops > 3200 ? ops - 65536 : tps;
+								const offset = isLinear ? -1 : 0;
+								if (isLinear && index === 0) {
+									stepUp.onePercentValue = 0;
+									stepUp.twoPercentValue = 0;
+								} else {
+									stepUp.onePercentValue = parseInt(
+										parsed[24 + offset + index]
+									);
+									stepUp.twoPercentValue = parseInt(
+										parsed[34 + offset + index]
+									);
+								}
+								data.formerLinearUp.values.push(stepUp);
+							}
+						}
+					}
+					if (parsedControllerData[i].startsWith(`NEW_RWC`)) {
+						const parsed = parsedControllerData[i]
+							.split(" ")
+							.filter(Boolean);
+						if (parsed.length > 1) {
+							if (parsed[1] === "0") {
+								data.welderType = "Constant";
+							}
+							if (parsed[1] === "1") {
+								data.welderType = "Adaptive";
+							}
+						}
+					}
+					++i;
+				}
+				return { data: data, errors: errors };
+			}
+		}
+		errors.push(`Error: Unable to locate robot gun information in ${target}`);
 		return { data: data, errors: errors };
 	};
 
@@ -1271,7 +1664,7 @@ export default class KawasakiParser {
 	): Promise<{ data: ProgramObjectAlias[]; errors: string[] }> => {
 		const target = `.PROGRAM`;
 		const data: ProgramObjectAlias[] = [];
-		const errors: string[] = [];
+		let errors: string[] = [];
 		for (let i = 0; i < parsedControllerData.length; ++i) {
 			if (
 				parsedControllerData[i].startsWith(target) &&
@@ -1296,143 +1689,15 @@ export default class KawasakiParser {
 					parsed.length > 1 ? (program.comment = parsed[1]) : null;
 				}
 				i += 1;
+				// Parse program lines
 				while (parsedControllerData[i] != ".END") {
 					const parsed = parsedControllerData[i];
-					if (parsed.startsWith(";")) {
-						const line: ProgramLineObjectAlias = {
-							type: "comment",
-							line: "",
-							comment: "",
-						};
-						line.comment = parsed.substr(1);
-						program.lines.push(line);
-					} else if (parsed.startsWith("FN")) {
-						const line: ProgramLineObjectAlias = {
-							type: "function",
-							comment: "",
-							function: 0,
-							arguments: [],
-							interpolation: "",
-							speed: 0,
-							accuracy: 0,
-							timer: 0,
-							tool: 0,
-							work: 0,
-							group: 0,
-							mh: 0,
-							inputs: "",
-							outputs: "",
-							joints: [],
-							operation: "",
-							clamp: 0,
-						};
-						const comment = parsed.split(";");
-						comment.length > 1 ? (line.comment = comment[1]) : null;
-						const func = parsed.split("[")[0];
-						line.function = parseInt(func.slice(2));
-						let args = parsed.split("[")[1];
-						args = args.substring(0, args.length - 1);
-						line.arguments = args.split(",").filter(Boolean);
-						program.lines.push(line);
-					} else if (
-						parsed.startsWith("JOINT") ||
-						parsed.startsWith("LINEAR")
-					) {
-						const line: ProgramLineObjectAlias = {
-							type: "block",
-							comment: "",
-							function: 0,
-							arguments: [],
-							interpolation: "",
-							speed: 0,
-							accuracy: 0,
-							timer: 0,
-							tool: 0,
-							work: 0,
-							group: 0,
-							mh: 0,
-							inputs: "",
-							outputs: "",
-							joints: [],
-							operation: "",
-							clamp: 0,
-						};
-						const comment = parsed.split(";");
-						comment.length > 1 ? (line.comment = comment[1]) : null;
-						const parsed2 = parsed.split(" ").filter(Boolean);
-						line.interpolation = parsed2[0];
-						if (parsed2[1].startsWith("SPEED")) {
-							line.speed = parseInt(parsed2[1].replace("SPEED", ""));
-						} else {
-							line.speed = parseFloat(parsed2[1]);
-						}
-						for (let index = 0; index < parsed2.length; index += 1) {
-							if (parsed2[index].startsWith("ACCU")) {
-								line.accuracy = parseInt(
-									parsed2[index].replace("ACCU", "")
-								);
-							}
-							if (parsed2[index].startsWith("TIMER")) {
-								line.timer = parseInt(
-									parsed2[index].replace("TIMER", "")
-								);
-							}
-							if (parsed2[index].startsWith("TOOL")) {
-								line.tool = parseInt(
-									parsed2[index].replace("TOOL", "")
-								);
-							}
-							if (parsed2[index].startsWith("WORK")) {
-								line.work = parseInt(
-									parsed2[index].replace("WORK", "")
-								);
-							}
-							if (parsed2[index].startsWith("GROUP")) {
-								line.group = parseInt(
-									parsed2[index].replace("GROUP", "")
-								);
-							}
-							if (parsed2[index].startsWith("MATHN")) {
-								line.mh = parseInt(parsed2[index].replace("MATHN", ""));
-							}
-							if (
-								parsed2[index].startsWith("CLAMP") &&
-								parsed2[index].replace("CLAMP", "") !== ""
-							) {
-								line.clamp = parseInt(
-									parsed2[index].replace("CLAMP", "")
-								);
-							}
-							if (
-								parsed2[index] === "END" ||
-								parsed2[index] === "JUMP"
-							) {
-								line.operation = parsed2[index];
-							}
-							if (parsed2[index].startsWith("OX")) {
-								line.outputs = parsed2[index].replace("OX=", "");
-							}
-							if (parsed2[index].startsWith("WX")) {
-								line.inputs = parsed2[index].replace("WX=", "");
-							}
-							if (parsed2[index].startsWith("#[")) {
-								let joints = parsed2[index].split(";")[0];
-								joints = joints.replace("#[", "");
-								joints = joints.replace("]", "");
-								line.joints = joints.split(",");
-							}
-						}
-						program.lines.push(line);
-					} else {
-						const line: ProgramLineObjectAlias = {
-							type: "as",
-							line: "",
-							comment: "",
-						};
-						const comment = parsed.split(";");
-						comment.length > 1 ? (line.comment = comment[1]) : null;
-						line.line = comment[0];
-						program.lines.push(line);
+					const line = KawasakiParser.getProgramLineObject(parsed);
+					if (line.errors) {
+						errors = errors.concat(line.errors);
+					}
+					if (line.data) {
+						program.lines.push(line.data);
 					}
 					i += 1;
 				}
@@ -1445,6 +1710,380 @@ export default class KawasakiParser {
 			);
 		}
 		return { data: data, errors: errors };
+	};
+
+	/***********************************************************************
+	 *	Parse program line
+	 *
+	 *	Expects a utf8 string containing the contents of a parsed program line.
+	 *	Returns an object of structure:
+	 * {data: ProgramLineObjectAlias, errors: string[]}
+	 ************************************************************************/
+	static getProgramLineObject(
+		parsedLine: string
+	): { data: ProgramLineObjectAlias; errors: string[] } {
+		const errors: string[] = [];
+		if (parsedLine.startsWith(";")) {
+			const line: ProgramLineObjectAlias = {
+				type: "comment",
+				line: "",
+				comment: "",
+			};
+			line.comment = parsedLine;
+			return { data: line, errors };
+		} else if (parsedLine.startsWith("FN")) {
+			const line: ProgramLineObjectAlias = {
+				type: "function",
+				comment: "",
+				function: 0,
+				arguments: [],
+			};
+			const comment = parsedLine.split(";");
+			comment.length > 1 ? (line.comment = comment[1]) : null;
+			const func = parsedLine.split("[")[0];
+			line.function = parseInt(func.slice(2));
+			let args = parsedLine.split("[")[1];
+			args = args.substring(0, args.length - 1);
+			line.arguments = args.split(",").filter(Boolean);
+			return { data: line, errors };
+		} else if (
+			parsedLine.startsWith("JOINT") ||
+			parsedLine.startsWith("LINEAR") ||
+			parsedLine.startsWith("CIR1") ||
+			parsedLine.startsWith("CIR2")
+		) {
+			const line: ProgramLineObjectAlias = {
+				type: "block",
+				comment: "",
+				interpolation: "",
+				speed: 0,
+				accuracy: 0,
+				timer: 0,
+				tool: 0,
+				work: 0,
+				group: 0,
+				mh: 0,
+				inputs: "",
+				outputs: "",
+				joints: [],
+				operation: "",
+				clampInstruction: {
+					clampNumber: 0,
+					clamp1: false,
+					clamp2: false,
+					instruction1: "",
+					instruction2: "",
+					gunNumber1: 0,
+					gunNumber2: 0,
+				},
+				weld: {
+					weldMode1: 0,
+					weldType1: 0,
+					weldMode2: 0,
+					weldType2: 0,
+					sealer: false,
+					backbar: false,
+					gunType: false,
+					autoCurMod: 0,
+					autoTipMod: 0,
+					autoWeldMod: 0,
+					mat1: 0,
+					thick1: 0,
+					mat2: 0,
+					thick2: 0,
+					mat3: 0,
+					thick3: 0,
+					mat4: 0,
+					thick4: 0,
+					tipForce: 0,
+					weldTime1: 0,
+					weldTime2: 0,
+					current1: 0,
+					current2: 0,
+					coolTime: 0,
+					squeezeTime: 0,
+					holdTime: 0,
+					pulsation: 0,
+					level: 0,
+				},
+			};
+			const comment = parsedLine.split(";");
+			comment.length > 1 ? (line.comment = comment[1]) : null;
+			const parsed2 = parsedLine.split(" ").filter(Boolean);
+			line.interpolation = parsed2[0];
+			if (parsed2[1].startsWith("SPEED")) {
+				line.speed = parseInt(parsed2[1].replace("SPEED", ""));
+			} else {
+				line.speed = parseFloat(parsed2[1]);
+			}
+			for (let index = 0; index < parsed2.length; index += 1) {
+				if (parsed2[index].startsWith("ACCU")) {
+					line.accuracy = parseInt(parsed2[index].replace("ACCU", ""));
+				}
+				if (parsed2[index].startsWith("TIMER")) {
+					line.timer = parseInt(parsed2[index].replace("TIMER", ""));
+				}
+				if (parsed2[index].startsWith("TOOL")) {
+					line.tool = parseInt(parsed2[index].replace("TOOL", ""));
+				}
+				if (parsed2[index].startsWith("WORK")) {
+					line.work = parseInt(parsed2[index].replace("WORK", ""));
+				}
+				if (parsed2[index].startsWith("GROUP")) {
+					line.group = parseInt(parsed2[index].replace("GROUP", ""));
+				}
+				if (parsed2[index].startsWith("MATHN")) {
+					line.mh = parseInt(parsed2[index].replace("MATHN", ""));
+				}
+				if (
+					parsed2[index].startsWith("CLAMP") &&
+					parsed2[index].replace("CLAMP", "") !== ""
+				) {
+					line.clampInstruction.clampNumber = parseInt(
+						parsed2[index].replace("CLAMP", "")
+					);
+				}
+				if (parsed2[index] === "END" || parsed2[index] === "JUMP") {
+					line.operation = parsed2[index];
+				}
+				if (parsed2[index].startsWith("OX")) {
+					line.outputs = parsed2[index].replace("OX=", "");
+				}
+				if (parsed2[index].startsWith("WX")) {
+					line.inputs = parsed2[index].replace("WX=", "");
+				}
+				if (parsed2[index].startsWith("YO=")) {
+					let parse = parsed2[index].replace("YO=", "");
+					parse = parse.split("^H").join("");
+					const values = parse.split(",").filter(Boolean);
+					if (values.length > 6) {
+						values.map((value, index) => {
+							const val = this.getFilledHexString(value);
+							if (index === 0) {
+								// SBG
+								const bin = KawasakiParser.getBinaryStringFromHex(
+									val[0]
+								);
+								line.weld.backbar = bin[bin.length - 1] === "1";
+								line.weld.sealer = bin[bin.length - 2] === "1";
+								line.weld.gunType = bin[bin.length - 3] === "1";
+
+								// Material 1
+								line.weld.mat1 =
+									KawasakiParser.getDecimalFromHex(val[1]) >> 1;
+
+								// Thickness 1
+								line.weld.thick1 =
+									(KawasakiParser.getDecimalFromHex(val[2] + val[3]) +
+										60) /
+									100;
+
+								// Material 2
+								line.weld.mat2 =
+									KawasakiParser.getDecimalFromHex(val[5]) >> 1;
+
+								// Thickness 2
+								line.weld.thick2 =
+									(KawasakiParser.getDecimalFromHex(val[6] + val[7]) +
+										60) /
+									100;
+							}
+							if (index === 1) {
+								// Material 3
+								line.weld.mat3 =
+									KawasakiParser.getDecimalFromHex(val[1]) >> 1;
+
+								// Thickness 3
+								line.weld.thick3 =
+									(KawasakiParser.getDecimalFromHex(val[2] + val[3]) +
+										60) /
+									100;
+
+								// Material 4
+								line.weld.mat4 =
+									KawasakiParser.getDecimalFromHex(val[5]) >> 1;
+
+								// Thickness 4
+								line.weld.thick4 =
+									(KawasakiParser.getDecimalFromHex(val[6] + val[7]) +
+										60) /
+									100;
+							}
+							if (index === 2) {
+								// Tip Force (Neutons)
+								line.weld.tipForce =
+									KawasakiParser.getDecimalFromHex(val[4] + val[5]) *
+									98;
+							}
+							if (index === 3) {
+								// Mods
+								const bin = KawasakiParser.getBinaryStringFromHex(
+									val[0]
+								);
+								line.weld.autoCurMod = parseInt(bin[bin.length - 2]);
+								line.weld.autoWeldMod = parseInt(bin[bin.length - 3]);
+								line.weld.autoTipMod = parseInt(bin[bin.length - 4]);
+
+								// Pulsation
+								line.weld.pulsation = KawasakiParser.getDecimalFromHex(
+									val[1]
+								);
+
+								// Squeeze
+								line.weld.squeezeTime = KawasakiParser.getDecimalFromHex(
+									val[2] + val[3]
+								);
+
+								// Current 1
+								line.weld.current1 =
+									KawasakiParser.getDecimalFromHex(val[4] + val[5]) *
+									100;
+
+								// Weld time 1
+								line.weld.weldTime1 = KawasakiParser.getDecimalFromHex(
+									val[6] + val[7]
+								);
+							}
+							if (index === 4) {
+								// Current 2
+								line.weld.current2 =
+									KawasakiParser.getDecimalFromHex(val[0] + val[1]) *
+									100;
+
+								// Weld time 2
+								line.weld.weldTime2 = KawasakiParser.getDecimalFromHex(
+									val[2] + val[3]
+								);
+
+								// Hold time
+								line.weld.holdTime = KawasakiParser.getDecimalFromHex(
+									val[4] + val[5]
+								);
+
+								// Cool time
+								line.weld.coolTime = KawasakiParser.getDecimalFromHex(
+									val[6] + val[7]
+								);
+							}
+						});
+					}
+				}
+				if (parsed2[index].startsWith("#[")) {
+					let joints = parsed2[index].split(";")[0];
+					joints = joints.replace("#[", "");
+					joints = joints.replace("]", "");
+					line.joints = joints.split(",");
+				}
+				if (parsed2[index].startsWith("(ON")) {
+					let s = parsed2[index].replace("(", "");
+					s = s.replace(")", "");
+					const parsed3 = s.split(",");
+					if (parsed3.length > 3) {
+						let ins = "";
+						switch (parsed3[3]) {
+							case "0":
+								ins = "R";
+								break;
+							case "O":
+								ins = "R";
+								break;
+							case "1":
+								ins = "W";
+								break;
+							case "2":
+								ins = "K";
+								break;
+							case "3":
+								ins = "P";
+								break;
+							case "4":
+								ins = "A";
+								break;
+							case "5":
+								ins = "L";
+								break;
+							case "6":
+								ins = "F";
+								break;
+							case "7":
+								ins = "H";
+								break;
+							case "9":
+								ins = "J";
+								break;
+							case "10":
+								ins = "C";
+								break;
+							case "11":
+								ins = "M";
+								break;
+							case "13":
+								ins = "S";
+								break;
+							case "14":
+								ins = "T";
+								break;
+							default:
+								ins = "";
+								break;
+						}
+						if (parsed2[index].endsWith("O)")) {
+							line.clampInstruction.clamp2 = true;
+							line.clampInstruction.gunNumber2 = parseInt(parsed3[2]);
+							line.clampInstruction.instruction2 = ins;
+						} else {
+							line.clampInstruction.clamp1 = true;
+							line.clampInstruction.gunNumber1 = parseInt(parsed3[2]);
+							line.clampInstruction.instruction1 = ins;
+						}
+					}
+				}
+			}
+			return { data: line, errors };
+		} else {
+			const line: ProgramLineObjectAlias = {
+				type: "as",
+				line: "",
+				comment: "",
+			};
+			const comment = parsedLine.split(";");
+			comment.length > 1 ? (line.comment = comment[1]) : null;
+			line.line = comment[0];
+			return { data: line, errors };
+		}
+	}
+
+	/***********************************************************************
+	 *	Fill leading 0 hex string
+	 *
+	 *	Expects a utf8 string containing a hex value.
+	 *	Returns a string with the leading 0s:
+	 * string
+	 ************************************************************************/
+	static getFilledHexString = (hexValue: string): string => {
+		return ("00000000" + hexValue).substr(-8);
+	};
+
+	/***********************************************************************
+	 *	Parse hex string
+	 *
+	 *	Expects a utf8 string containing a hex value.
+	 *	Returns a string with the binary equivalent:
+	 * string
+	 ************************************************************************/
+	static getBinaryStringFromHex = (hexValue: string): string => {
+		return ("00000000" + parseInt(hexValue, 16).toString(2)).substr(-8);
+	};
+
+	/***********************************************************************
+	 *	Convert hex string to decimal int
+	 *
+	 *	Expects a utf8 string containing a hex value.
+	 *	Returns an int:
+	 * int
+	 ************************************************************************/
+	static getDecimalFromHex = (hexValue: string): number => {
+		return parseInt(hexValue, 16);
 	};
 
 	/***********************************************************************
