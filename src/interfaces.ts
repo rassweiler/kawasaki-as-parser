@@ -1,6 +1,6 @@
 export type ControllerObjectAlias = {
 	controllerType: string;
-	manufacturer: "Kawasaki";
+	manufacturer: string;
 	robots: RobotObjectAlias[];
 	ioComments: IOCommentObjectAlias;
 	commonPrograms: ProgramObjectAlias[];
@@ -11,28 +11,33 @@ export type ControllerObjectAlias = {
 };
 
 export type RobotObjectAlias = {
-	robotType: RobotTypeAlias;
-	robotModel: string;
+	type: string;
+	model: string;
 	bcds: BCDObjectAlias[];
 	ncTable: MHTableObjectAlias[];
 	tools: ToolObjectAlias[];
 	installPosition: InstallPositionAlias;
 	vsf: VSFObjectAlias;
-	spot: SpotObjectAlias[];
+	isLinear: boolean;
+	spotGuns: SpotObjectAlias[];
 	rac: RacObjectAlias[];
 	programs: ProgramObjectAlias[];
+	switches: SwitchAlias[];
+	homePosition: number[];
+	jumpPosition: number[];
+	currentPosition: PositionObjectAlias;
 };
 
-export type RobotTypeAlias =
-	| "Spot"
-	| "NC"
-	| "Spot-MH"
-	| "Vision"
-	| "Mig"
-	| "Hem"
-	| "Locator"
-	| ""
-	| "MH";
+export type PositionObjectAlias = {
+	program: number;
+	step: number;
+	joints: number[];
+};
+
+export type SwitchAlias = {
+	switch: string;
+	value: boolean;
+};
 
 export type BCDObjectAlias = {
 	bcd: number;
@@ -133,8 +138,8 @@ export type SpotObjectAlias = {
 	dresserUse: boolean;
 	leakCheck: boolean;
 	reweld: boolean;
-	welderType: "Constant Current" | "Adaptive";
-	gunType: "Pincher";
+	welderType: string;
+	gunType: string;
 	squeeze: number;
 	gunArea: number;
 	maxPressure: number;
@@ -199,10 +204,8 @@ export type ProgramObjectAlias = {
 
 export type ProgramLineObjectAlias =
 	| {
-			type: "block" | "function";
+			type: "block";
 			comment: string;
-			function: number;
-			arguments: string[];
 			interpolation: string;
 			speed: number;
 			accuracy: number;
@@ -215,13 +218,61 @@ export type ProgramLineObjectAlias =
 			outputs: string;
 			joints: string[];
 			operation: string;
-			clamp: number;
+			clampInstruction: ClampObjectAlias;
+			weld: WeldObjectAlias;
+	  }
+	| {
+			type: "function";
+			comment: string;
+			function: number;
+			arguments: string[];
 	  }
 	| {
 			type: "comment" | "as";
 			line: string;
 			comment: string;
 	  };
+
+export type ClampObjectAlias = {
+	clampNumber: number;
+	clamp1: boolean;
+	clamp2: boolean;
+	instruction1: string;
+	instruction2: string;
+	gunNumber1: number;
+	gunNumber2: number;
+};
+
+export type WeldObjectAlias = {
+	weldMode1: number;
+	weldType1: number;
+	weldMode2: number;
+	weldType2: number;
+	sealer: boolean;
+	backbar: boolean;
+	gunType: boolean;
+	autoCurMod: number;
+	autoTipMod: number;
+	autoWeldMod: number;
+	mat1: number;
+	thick1: number;
+	mat2: number;
+	thick2: number;
+	mat3: number;
+	thick3: number;
+	mat4: number;
+	thick4: number;
+	tipForce: number;
+	weldTime1: number;
+	weldTime2: number;
+	current1: number;
+	current2: number;
+	coolTime: number;
+	squeezeTime: number;
+	holdTime: number;
+	pulsation: number;
+	level: number;
+};
 
 export type IOCommentObjectAlias = {
 	inputs: {
